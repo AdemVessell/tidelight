@@ -1,0 +1,16 @@
+TIDELIGHT — Adem Vessell / Arkhē, 2026.
+Created with Codex. Original procedural scene and experiment.
+
+The source and scene are available here for inspection and reproduction.
+No blanket open-source licence is granted by this notice. Third-party components
+retain their own licences:
+
+KaTeX 0.19.0: MIT; see website/dist/tidelight/vendor/katex/LICENSE.
+KaTeX fonts: MIT; see website/dist/tidelight/vendor/licenses/katex-fonts-MIT.txt.
+Font source: https://github.com/KaTeX/katex-fonts
+Bodoni Moda: SIL Open Font License; see website/dist/tidelight/vendor/licenses/bodonimoda-OFL.txt.
+Michroma: SIL Open Font License; see website/dist/tidelight/vendor/licenses/michroma-OFL.txt.
+Space Mono: SIL Open Font License; see website/dist/tidelight/vendor/licenses/spacemono-OFL.txt.
+Font licence source: https://github.com/google/fonts/tree/main/ofl/
+
+Blender/Cycles is the separately installed renderer, not distributed in this site.

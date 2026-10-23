@@ -1,0 +1,17 @@
+{
+  "case-A": {
+    "mist_density": 0.023980373208281485,
+    "key_energy": 6.967656360174149,
+    "water_roughness": 0.21453248651235662
+  },
+  "case-B": {
+    "mist_density": 0.04469033576484416,
+    "key_energy": 6.184924723299759,
+    "water_roughness": 0.21718991835306128
+  },
+  "case-C": {
+    "mist_density": 0.018702151877446966,
+    "key_energy": 7.22106004425399,
+    "water_roughness": 0.22450758448214458
+  }
+}

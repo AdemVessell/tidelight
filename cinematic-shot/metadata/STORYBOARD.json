@@ -1,0 +1,67 @@
+{
+  "width": 1600,
+  "height": 900,
+  "fps": 24,
+  "duration_seconds": 50,
+  "continuous_shot_seconds": 10,
+  "chapters": [
+    {
+      "name": "THE SHOT",
+      "title": "A world in motion.",
+      "subtitle": "Ten seconds. One continuous camera move.",
+      "equations": [],
+      "detail": "Original procedural scene \u00b7 Blender Cycles \u00b7 240 individually rendered frames",
+      "start": 0,
+      "end": 10
+    },
+    {
+      "name": "01 / MOVING WATER",
+      "title": "Give the waves a clock.",
+      "subtitle": "Four traveling waves move the actual surface mesh.",
+      "equations": [
+        "\\eta(x,y,t)=\\sum_{i=1}^{4} A_i\\sin(k_{xi}x+k_{yi}y-\\omega_i\\tau+\\phi_i)",
+        "\\omega_i=\\sqrt{9.81\\,\\|\\mathbf{k}_i\\|},\\qquad \\tau=0.42t"
+      ],
+      "detail": "Dispersion-inspired waves with an artistic time scale; fine shader normals drift separately.",
+      "start": 10,
+      "end": 20
+    },
+    {
+      "name": "02 / DRIFTING MIST",
+      "title": "Move a field through the light.",
+      "subtitle": "The density changes in space and drifts over time.",
+      "equations": [
+        "\\mathbf{q}=\\operatorname{diag}(0.85,0.85,1.05)\\mathbf{g}+t(0.075,0.030,0)",
+        "D(\\mathbf{g},t)=0.028(0.65-0.62g_z)\\,R\\!\\left(N(2.2\\mathbf{q})\\right)"
+      ],
+      "detail": "g is Generated space; N is 3D noise (detail 4, roughness 0.66). R(n) = 0.18 + 1.10 clip((n\u22120.18)/0.60, 0, 1). Procedural advection; no fluid simulation.",
+      "start": 20,
+      "end": 30
+    },
+    {
+      "name": "03 / WET STONE",
+      "title": "Let the waterline shape the surface.",
+      "subtitle": "Lower stone is smoother and more strongly coated.",
+      "equations": [
+        "u=\\operatorname{clip}\\!\\left(\\frac{z+0.3}{1.5},0,1\\right)",
+        "r(z)=0.11+0.47u,\\qquad w_{\\rm coat}(z)=0.42-0.30u"
+      ],
+      "detail": "z is world-space height. This authored wetness gradient is applied to the two added foreground stones.",
+      "start": 30,
+      "end": 40
+    },
+    {
+      "name": "04 / THE CAMERA",
+      "title": "A smooth path through the inlet.",
+      "subtitle": "Foreground stone passes faster than the distant stacks.",
+      "equations": [
+        "p=\\operatorname{clip}(t/10,0,1),\\qquad s=p^2(3-2p)",
+        "\\mathbf{C}(t)=\\left(1.25s,\\;-18.5+3s,\\;1.42+0.08\\sin(\\pi p)\\right)"
+      ],
+      "detail": "32.5 mm lens \u00b7 f/7.1. A moving look-at target keeps the inlet composed. Lengths are scene units.",
+      "start": 40,
+      "end": 50
+    }
+  ],
+  "disclosure": "Same ten-second 3D-rendered shot replayed for four mathematical explanations. No optical-flow interpolation or image warping."
+}

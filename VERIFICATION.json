@@ -1,0 +1,22 @@
+{
+  "status": "PASS_WITH_UI_LIMIT",
+  "frozen_source_hashes_match": true,
+  "embedded_results_match": true,
+  "all_linked_files_present": true,
+  "png_assets_decoded": 36,
+  "training_and_heldout_rmse_independently_recomputed": true,
+  "fresh_process_replay": {
+    "status": "PASS",
+    "rmse": 3.509575822809654e-07,
+    "byte_identical": false
+  },
+  "separate_agent_audit": {
+    "candidates": 210,
+    "request_response_errors": 0,
+    "case_gates": "2 PASS, 1 FAIL"
+  },
+  "javascript_syntax": "PASS",
+  "reproduction_wrapper_syntax": "PASS",
+  "live_browser_interaction": "UNVERIFIED: file URL blocked by Chrome automation policy",
+  "publication": "NONE"
+}

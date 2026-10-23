@@ -1,0 +1,115 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "water_rewinds_exactly",
+      "pass": true
+    },
+    {
+      "name": "camera_rewinds_exactly",
+      "pass": true
+    },
+    {
+      "name": "mist_rewinds_exactly",
+      "pass": true
+    },
+    {
+      "name": "normals_rewinds_exactly",
+      "pass": true
+    },
+    {
+      "name": "water_changes_with_time",
+      "pass": true
+    },
+    {
+      "name": "camera_changes_with_time",
+      "pass": true
+    },
+    {
+      "name": "mist_changes_with_time",
+      "pass": true
+    },
+    {
+      "name": "normals_changes_with_time",
+      "pass": true
+    },
+    {
+      "name": "all_water_vertices_match_independent_vectorized_formula",
+      "pass": true,
+      "max_abs": 7.444371785680914e-09,
+      "vertices": 21901
+    },
+    {
+      "name": "water_amplitude_bound",
+      "pass": true
+    },
+    {
+      "name": "water_base_world_height",
+      "pass": true
+    },
+    {
+      "name": "mist_mapping_matches_time",
+      "pass": true
+    },
+    {
+      "name": "fine_normals_mapping_matches_time",
+      "pass": true
+    },
+    {
+      "name": "camera_midpoint",
+      "pass": true
+    },
+    {
+      "name": "water_no_motion_control",
+      "pass": true
+    },
+    {
+      "name": "camera_no_motion_control",
+      "pass": true
+    },
+    {
+      "name": "mist_no_motion_control",
+      "pass": true
+    },
+    {
+      "name": "normals_no_motion_control",
+      "pass": true
+    },
+    {
+      "name": "water_restored_after_control",
+      "pass": true
+    },
+    {
+      "name": "camera_restored_after_control",
+      "pass": true
+    },
+    {
+      "name": "mist_restored_after_control",
+      "pass": true
+    },
+    {
+      "name": "normals_restored_after_control",
+      "pass": true
+    },
+    {
+      "name": "wetness_uses_shader_geometry_position",
+      "pass": true
+    },
+    {
+      "name": "wetness_roughness_endpoints",
+      "pass": true
+    },
+    {
+      "name": "wetness_coat_endpoints",
+      "pass": true
+    },
+    {
+      "name": "original_scene_preserved",
+      "pass": true
+    }
+  ],
+  "blender": "5.1.2",
+  "scope": "Geometry/node/camera state checks, not a validation of physical water or fog dynamics",
+  "units": "Scene units; metre labels in development metadata denote an assumed scale, not physical calibration",
+  "source_sha256": "d2b8e6ed40a1d5dbcbc82b5fb73b7a26ffedce82b3e668b561f2d58a445a6069"
+}

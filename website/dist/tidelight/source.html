@@ -1,0 +1,754 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tidelight · Scene source</title><link rel="stylesheet" href="vendor/fonts.css"><link rel="stylesheet" href="styles.css"><style>header{position:sticky!important;top:0}main{padding:45px 5vw}h1{font-size:32px;font-weight:400;margin:15px 0}pre{font:12px/1.8 monospace;overflow:auto;background:#0d141a;padding:25px 15px;margin-top:30px;border:1px solid var(--line)}.line{display:block;scroll-margin-top:110px}.line a{color:#70878a;text-decoration:none;user-select:none;padding-right:20px}.line:target{background:#374b46;color:#fff}.note{max-width:700px;font-size:14px}</style></head><body><header class="site-header"><a class="brand" href="./">ARKHĒ / TIDELIGHT</a><nav><a href="./#film">Back to the scene ←</a><a href="downloads/scene.py" download>Download Python ↓</a></nav></header><main><p class="eyebrow copper">THE ORIGINAL PROCEDURAL PROGRAM</p><h1>Where the image begins.</h1><p class="note">The exact scene source used by the frozen experiment. Blender 5.1.2 supplies mesh primitives, procedural texture nodes, materials and Cycles light transport. The numbered links let each equation point to its implementation.</p><pre aria-label="Python scene source"><span id="L1" class="line"><a href="#L1">001</a> &quot;&quot;&quot;Procedural cinematic basalt sea inlet for the equation-art challenge.</span>
+<span id="L2" class="line"><a href="#L2">002</a> </span>
+<span id="L3" class="line"><a href="#L3">003</a> This file is intentionally self-contained.  It can be executed by Blender in</span>
+<span id="L4" class="line"><a href="#L4">004</a> background mode to build, save, and render the scene, or imported into a long</span>
+<span id="L5" class="line"><a href="#L5">005</a> running Blender Python process.  Geometry and shader variation are generated</span>
+<span id="L6" class="line"><a href="#L6">006</a> from fixed integer seeds; no external assets are needed.</span>
+<span id="L7" class="line"><a href="#L7">007</a> &quot;&quot;&quot;</span>
+<span id="L8" class="line"><a href="#L8">008</a> </span>
+<span id="L9" class="line"><a href="#L9">009</a> import math</span>
+<span id="L10" class="line"><a href="#L10">010</a> import os</span>
+<span id="L11" class="line"><a href="#L11">011</a> import random</span>
+<span id="L12" class="line"><a href="#L12">012</a> import sys</span>
+<span id="L13" class="line"><a href="#L13">013</a> from pathlib import Path</span>
+<span id="L14" class="line"><a href="#L14">014</a> </span>
+<span id="L15" class="line"><a href="#L15">015</a> import bpy</span>
+<span id="L16" class="line"><a href="#L16">016</a> import bmesh</span>
+<span id="L17" class="line"><a href="#L17">017</a> from mathutils import Vector, noise as mnoise</span>
+<span id="L18" class="line"><a href="#L18">018</a> </span>
+<span id="L19" class="line"><a href="#L19">019</a> </span>
+<span id="L20" class="line"><a href="#L20">020</a> DEFAULTS = {</span>
+<span id="L21" class="line"><a href="#L21">021</a>     &quot;mist_density&quot;: 0.028,</span>
+<span id="L22" class="line"><a href="#L22">022</a>     &quot;key_energy&quot;: 5.5,</span>
+<span id="L23" class="line"><a href="#L23">023</a>     &quot;water_roughness&quot;: 0.14,</span>
+<span id="L24" class="line"><a href="#L24">024</a>     &quot;camera_shift&quot;: 0.0,</span>
+<span id="L25" class="line"><a href="#L25">025</a> }</span>
+<span id="L26" class="line"><a href="#L26">026</a> BOUNDS = {</span>
+<span id="L27" class="line"><a href="#L27">027</a>     &quot;mist_density&quot;: (0.012, 0.06),</span>
+<span id="L28" class="line"><a href="#L28">028</a>     &quot;key_energy&quot;: (3.0, 8.0),</span>
+<span id="L29" class="line"><a href="#L29">029</a>     &quot;water_roughness&quot;: (0.08, 0.25),</span>
+<span id="L30" class="line"><a href="#L30">030</a>     &quot;camera_shift&quot;: (-0.6, 0.6),</span>
+<span id="L31" class="line"><a href="#L31">031</a> }</span>
+<span id="L32" class="line"><a href="#L32">032</a> </span>
+<span id="L33" class="line"><a href="#L33">033</a> </span>
+<span id="L34" class="line"><a href="#L34">034</a> def _clamp(name, value):</span>
+<span id="L35" class="line"><a href="#L35">035</a>     lo, hi = BOUNDS[name]</span>
+<span id="L36" class="line"><a href="#L36">036</a>     return max(lo, min(hi, float(value)))</span>
+<span id="L37" class="line"><a href="#L37">037</a> </span>
+<span id="L38" class="line"><a href="#L38">038</a> </span>
+<span id="L39" class="line"><a href="#L39">039</a> def _set_input(node, names, value):</span>
+<span id="L40" class="line"><a href="#L40">040</a>     for name in names:</span>
+<span id="L41" class="line"><a href="#L41">041</a>         socket = node.inputs.get(name)</span>
+<span id="L42" class="line"><a href="#L42">042</a>         if socket is not None:</span>
+<span id="L43" class="line"><a href="#L43">043</a>             socket.default_value = value</span>
+<span id="L44" class="line"><a href="#L44">044</a>             return socket</span>
+<span id="L45" class="line"><a href="#L45">045</a>     return None</span>
+<span id="L46" class="line"><a href="#L46">046</a> </span>
+<span id="L47" class="line"><a href="#L47">047</a> </span>
+<span id="L48" class="line"><a href="#L48">048</a> def _look_at(obj, target):</span>
+<span id="L49" class="line"><a href="#L49">049</a>     obj.rotation_euler = (Vector(target) - obj.location).to_track_quat(&quot;-Z&quot;, &quot;Y&quot;).to_euler()</span>
+<span id="L50" class="line"><a href="#L50">050</a> </span>
+<span id="L51" class="line"><a href="#L51">051</a> </span>
+<span id="L52" class="line"><a href="#L52">052</a> def _material_output(material):</span>
+<span id="L53" class="line"><a href="#L53">053</a>     return material.node_tree.nodes.get(&quot;Material Output&quot;)</span>
+<span id="L54" class="line"><a href="#L54">054</a> </span>
+<span id="L55" class="line"><a href="#L55">055</a> </span>
+<span id="L56" class="line"><a href="#L56">056</a> def _make_rock_material():</span>
+<span id="L57" class="line"><a href="#L57">057</a>     mat = bpy.data.materials.new(&quot;MAT_slate_wet_basalt&quot;)</span>
+<span id="L58" class="line"><a href="#L58">058</a>     mat.use_nodes = True</span>
+<span id="L59" class="line"><a href="#L59">059</a>     nodes = mat.node_tree.nodes</span>
+<span id="L60" class="line"><a href="#L60">060</a>     links = mat.node_tree.links</span>
+<span id="L61" class="line"><a href="#L61">061</a>     nodes.clear()</span>
+<span id="L62" class="line"><a href="#L62">062</a>     out = nodes.new(&quot;ShaderNodeOutputMaterial&quot;)</span>
+<span id="L63" class="line"><a href="#L63">063</a>     out.location = (680, 0)</span>
+<span id="L64" class="line"><a href="#L64">064</a>     bsdf = nodes.new(&quot;ShaderNodeBsdfPrincipled&quot;)</span>
+<span id="L65" class="line"><a href="#L65">065</a>     bsdf.location = (410, 0)</span>
+<span id="L66" class="line"><a href="#L66">066</a>     _set_input(bsdf, [&quot;Metallic&quot;], 0.0)</span>
+<span id="L67" class="line"><a href="#L67">067</a>     _set_input(bsdf, [&quot;Roughness&quot;], 0.38)</span>
+<span id="L68" class="line"><a href="#L68">068</a>     _set_input(bsdf, [&quot;Coat Weight&quot;], 0.12)</span>
+<span id="L69" class="line"><a href="#L69">069</a>     _set_input(bsdf, [&quot;Coat Roughness&quot;], 0.22)</span>
+<span id="L70" class="line"><a href="#L70">070</a>     _set_input(bsdf, [&quot;IOR&quot;], 1.46)</span>
+<span id="L71" class="line"><a href="#L71">071</a>     _set_input(bsdf, [&quot;Specular IOR Level&quot;, &quot;Specular&quot;], 0.52)</span>
+<span id="L72" class="line"><a href="#L72">072</a>     noise = nodes.new(&quot;ShaderNodeTexNoise&quot;)</span>
+<span id="L73" class="line"><a href="#L73">073</a>     noise.location = (-600, 100)</span>
+<span id="L74" class="line"><a href="#L74">074</a>     noise.inputs[&quot;Scale&quot;].default_value = 3.4</span>
+<span id="L75" class="line"><a href="#L75">075</a>     noise.inputs[&quot;Detail&quot;].default_value = 9.0</span>
+<span id="L76" class="line"><a href="#L76">076</a>     noise.inputs[&quot;Roughness&quot;].default_value = 0.72</span>
+<span id="L77" class="line"><a href="#L77">077</a>     noise.inputs[&quot;Distortion&quot;].default_value = 0.16</span>
+<span id="L78" class="line"><a href="#L78">078</a>     noise.name = &quot;Slate macro grain&quot;</span>
+<span id="L79" class="line"><a href="#L79">079</a>     noise2 = nodes.new(&quot;ShaderNodeTexNoise&quot;)</span>
+<span id="L80" class="line"><a href="#L80">080</a>     noise2.location = (-600, -230)</span>
+<span id="L81" class="line"><a href="#L81">081</a>     noise2.inputs[&quot;Scale&quot;].default_value = 145.0</span>
+<span id="L82" class="line"><a href="#L82">082</a>     noise2.inputs[&quot;Detail&quot;].default_value = 4.0</span>
+<span id="L83" class="line"><a href="#L83">083</a>     noise2.inputs[&quot;Roughness&quot;].default_value = 0.65</span>
+<span id="L84" class="line"><a href="#L84">084</a>     noise2.name = &quot;Slate fine grain&quot;</span>
+<span id="L85" class="line"><a href="#L85">085</a>     tex = nodes.new(&quot;ShaderNodeTexCoord&quot;)</span>
+<span id="L86" class="line"><a href="#L86">086</a>     tex.location = (-850, 70)</span>
+<span id="L87" class="line"><a href="#L87">087</a>     ramp = nodes.new(&quot;ShaderNodeValToRGB&quot;)</span>
+<span id="L88" class="line"><a href="#L88">088</a>     ramp.location = (-120, 130)</span>
+<span id="L89" class="line"><a href="#L89">089</a>     ramp.color_ramp.elements.remove(ramp.color_ramp.elements[1])</span>
+<span id="L90" class="line"><a href="#L90">090</a>     e0 = ramp.color_ramp.elements[0]</span>
+<span id="L91" class="line"><a href="#L91">091</a>     e0.position = 0.18</span>
+<span id="L92" class="line"><a href="#L92">092</a>     e0.color = (0.012, 0.014, 0.017, 1)</span>
+<span id="L93" class="line"><a href="#L93">093</a>     e1 = ramp.color_ramp.elements.new(0.48)</span>
+<span id="L94" class="line"><a href="#L94">094</a>     e1.color = (0.045, 0.052, 0.057, 1)</span>
+<span id="L95" class="line"><a href="#L95">095</a>     e2 = ramp.color_ramp.elements.new(0.76)</span>
+<span id="L96" class="line"><a href="#L96">096</a>     e2.color = (0.15, 0.16, 0.16, 1)</span>
+<span id="L97" class="line"><a href="#L97">097</a>     e3 = ramp.color_ramp.elements.new(0.94)</span>
+<span id="L98" class="line"><a href="#L98">098</a>     e3.color = (0.29, 0.28, 0.25, 1)</span>
+<span id="L99" class="line"><a href="#L99">099</a>     bump_mix = nodes.new(&quot;ShaderNodeMixRGB&quot;)</span>
+<span id="L100" class="line"><a href="#L100">100</a>     bump_mix.blend_type = &quot;MULTIPLY&quot;</span>
+<span id="L101" class="line"><a href="#L101">101</a>     bump_mix.inputs[0].default_value = 0.72</span>
+<span id="L102" class="line"><a href="#L102">102</a>     bump_mix.location = (-120, -150)</span>
+<span id="L103" class="line"><a href="#L103">103</a>     bump = nodes.new(&quot;ShaderNodeBump&quot;)</span>
+<span id="L104" class="line"><a href="#L104">104</a>     bump.location = (175, -150)</span>
+<span id="L105" class="line"><a href="#L105">105</a>     bump.inputs[&quot;Strength&quot;].default_value = 0.65</span>
+<span id="L106" class="line"><a href="#L106">106</a>     bump.inputs[&quot;Distance&quot;].default_value = 0.038</span>
+<span id="L107" class="line"><a href="#L107">107</a>     links.new(tex.outputs[&quot;Generated&quot;], noise.inputs[&quot;Vector&quot;])</span>
+<span id="L108" class="line"><a href="#L108">108</a>     links.new(tex.outputs[&quot;Generated&quot;], noise2.inputs[&quot;Vector&quot;])</span>
+<span id="L109" class="line"><a href="#L109">109</a>     links.new(noise.outputs[&quot;Fac&quot;], ramp.inputs[&quot;Fac&quot;])</span>
+<span id="L110" class="line"><a href="#L110">110</a>     links.new(noise.outputs[&quot;Fac&quot;], bump_mix.inputs[1])</span>
+<span id="L111" class="line"><a href="#L111">111</a>     links.new(noise2.outputs[&quot;Fac&quot;], bump_mix.inputs[2])</span>
+<span id="L112" class="line"><a href="#L112">112</a>     links.new(ramp.outputs[&quot;Color&quot;], bsdf.inputs[&quot;Base Color&quot;])</span>
+<span id="L113" class="line"><a href="#L113">113</a>     links.new(bump_mix.outputs[&quot;Color&quot;], bump.inputs[&quot;Height&quot;])</span>
+<span id="L114" class="line"><a href="#L114">114</a>     links.new(bump.outputs[&quot;Normal&quot;], bsdf.inputs[&quot;Normal&quot;])</span>
+<span id="L115" class="line"><a href="#L115">115</a>     links.new(bsdf.outputs[&quot;BSDF&quot;], out.inputs[&quot;Surface&quot;])</span>
+<span id="L116" class="line"><a href="#L116">116</a>     return mat</span>
+<span id="L117" class="line"><a href="#L117">117</a> </span>
+<span id="L118" class="line"><a href="#L118">118</a> </span>
+<span id="L119" class="line"><a href="#L119">119</a> def _make_water_material():</span>
+<span id="L120" class="line"><a href="#L120">120</a>     mat = bpy.data.materials.new(&quot;MAT_teal_inlet_water&quot;)</span>
+<span id="L121" class="line"><a href="#L121">121</a>     mat.use_nodes = True</span>
+<span id="L122" class="line"><a href="#L122">122</a>     mat[&quot;water_roughness&quot;] = DEFAULTS[&quot;water_roughness&quot;]</span>
+<span id="L123" class="line"><a href="#L123">123</a>     nodes = mat.node_tree.nodes</span>
+<span id="L124" class="line"><a href="#L124">124</a>     links = mat.node_tree.links</span>
+<span id="L125" class="line"><a href="#L125">125</a>     nodes.clear()</span>
+<span id="L126" class="line"><a href="#L126">126</a>     out = nodes.new(&quot;ShaderNodeOutputMaterial&quot;)</span>
+<span id="L127" class="line"><a href="#L127">127</a>     out.location = (680, 0)</span>
+<span id="L128" class="line"><a href="#L128">128</a>     bsdf = nodes.new(&quot;ShaderNodeBsdfPrincipled&quot;)</span>
+<span id="L129" class="line"><a href="#L129">129</a>     bsdf.location = (410, 0)</span>
+<span id="L130" class="line"><a href="#L130">130</a>     bsdf.name = &quot;Water Principled&quot;</span>
+<span id="L131" class="line"><a href="#L131">131</a>     _set_input(bsdf, [&quot;Base Color&quot;], (0.008, 0.027, 0.032, 1))</span>
+<span id="L132" class="line"><a href="#L132">132</a>     _set_input(bsdf, [&quot;Metallic&quot;], 0.0)</span>
+<span id="L133" class="line"><a href="#L133">133</a>     _set_input(bsdf, [&quot;Transmission Weight&quot;], 0.25)</span>
+<span id="L134" class="line"><a href="#L134">134</a>     _set_input(bsdf, [&quot;Roughness&quot;], DEFAULTS[&quot;water_roughness&quot;])</span>
+<span id="L135" class="line"><a href="#L135">135</a>     _set_input(bsdf, [&quot;IOR&quot;], 1.333)</span>
+<span id="L136" class="line"><a href="#L136">136</a>     _set_input(bsdf, [&quot;Specular IOR Level&quot;, &quot;Specular&quot;], 0.50)</span>
+<span id="L137" class="line"><a href="#L137">137</a>     tex = nodes.new(&quot;ShaderNodeTexCoord&quot;)</span>
+<span id="L138" class="line"><a href="#L138">138</a>     tex.location = (-980, 80)</span>
+<span id="L139" class="line"><a href="#L139">139</a>     mapping = nodes.new(&quot;ShaderNodeMapping&quot;)</span>
+<span id="L140" class="line"><a href="#L140">140</a>     mapping.location = (-800, 80)</span>
+<span id="L141" class="line"><a href="#L141">141</a>     # Object coordinates stay in physical water scale; the previous Generated</span>
+<span id="L142" class="line"><a href="#L142">142</a>     # mapping made the entire 64x116m inlet read as one soft plastic gradient.</span>
+<span id="L143" class="line"><a href="#L143">143</a>     mapping.inputs[&quot;Scale&quot;].default_value = (0.22, 0.22, 1.0)</span>
+<span id="L144" class="line"><a href="#L144">144</a>     noise = nodes.new(&quot;ShaderNodeTexNoise&quot;)</span>
+<span id="L145" class="line"><a href="#L145">145</a>     noise.location = (-590, 160)</span>
+<span id="L146" class="line"><a href="#L146">146</a>     noise.inputs[&quot;Scale&quot;].default_value = 3.6</span>
+<span id="L147" class="line"><a href="#L147">147</a>     noise.inputs[&quot;Detail&quot;].default_value = 7.0</span>
+<span id="L148" class="line"><a href="#L148">148</a>     noise.inputs[&quot;Roughness&quot;].default_value = 0.56</span>
+<span id="L149" class="line"><a href="#L149">149</a>     noise.inputs[&quot;Distortion&quot;].default_value = 0.45</span>
+<span id="L150" class="line"><a href="#L150">150</a>     short = nodes.new(&quot;ShaderNodeTexNoise&quot;)</span>
+<span id="L151" class="line"><a href="#L151">151</a>     short.location = (-590, -110)</span>
+<span id="L152" class="line"><a href="#L152">152</a>     short.inputs[&quot;Scale&quot;].default_value = 14.0</span>
+<span id="L153" class="line"><a href="#L153">153</a>     short.inputs[&quot;Detail&quot;].default_value = 3.0</span>
+<span id="L154" class="line"><a href="#L154">154</a>     short.inputs[&quot;Roughness&quot;].default_value = 0.55</span>
+<span id="L155" class="line"><a href="#L155">155</a>     wave_x = nodes.new(&quot;ShaderNodeTexWave&quot;)</span>
+<span id="L156" class="line"><a href="#L156">156</a>     wave_x.location = (-590, -340)</span>
+<span id="L157" class="line"><a href="#L157">157</a>     wave_x.wave_type = &quot;BANDS&quot;</span>
+<span id="L158" class="line"><a href="#L158">158</a>     wave_x.bands_direction = &quot;X&quot;</span>
+<span id="L159" class="line"><a href="#L159">159</a>     wave_x.inputs[&quot;Scale&quot;].default_value = 4.2</span>
+<span id="L160" class="line"><a href="#L160">160</a>     wave_x.inputs[&quot;Distortion&quot;].default_value = 6.0</span>
+<span id="L161" class="line"><a href="#L161">161</a>     wave_x.inputs[&quot;Detail&quot;].default_value = 5.0</span>
+<span id="L162" class="line"><a href="#L162">162</a>     wave_y = nodes.new(&quot;ShaderNodeTexWave&quot;)</span>
+<span id="L163" class="line"><a href="#L163">163</a>     wave_y.location = (-380, -340)</span>
+<span id="L164" class="line"><a href="#L164">164</a>     wave_y.wave_type = &quot;BANDS&quot;</span>
+<span id="L165" class="line"><a href="#L165">165</a>     wave_y.bands_direction = &quot;Y&quot;</span>
+<span id="L166" class="line"><a href="#L166">166</a>     wave_y.inputs[&quot;Scale&quot;].default_value = 2.7</span>
+<span id="L167" class="line"><a href="#L167">167</a>     wave_y.inputs[&quot;Distortion&quot;].default_value = 4.0</span>
+<span id="L168" class="line"><a href="#L168">168</a>     wave_y.inputs[&quot;Detail&quot;].default_value = 4.0</span>
+<span id="L169" class="line"><a href="#L169">169</a>     ramp = nodes.new(&quot;ShaderNodeValToRGB&quot;)</span>
+<span id="L170" class="line"><a href="#L170">170</a>     ramp.location = (-80, 135)</span>
+<span id="L171" class="line"><a href="#L171">171</a>     ramp.color_ramp.elements[0].position = 0.30</span>
+<span id="L172" class="line"><a href="#L172">172</a>     ramp.color_ramp.elements[1].position = 0.68</span>
+<span id="L173" class="line"><a href="#L173">173</a>     ramp.color_ramp.elements[0].color = (0.003, 0.032, 0.050, 1)</span>
+<span id="L174" class="line"><a href="#L174">174</a>     ramp.color_ramp.elements[1].color = (0.045, 0.25, 0.28, 1)</span>
+<span id="L175" class="line"><a href="#L175">175</a>     ripple_ramp = nodes.new(&quot;ShaderNodeValToRGB&quot;)</span>
+<span id="L176" class="line"><a href="#L176">176</a>     ripple_ramp.location = (-90, -330)</span>
+<span id="L177" class="line"><a href="#L177">177</a>     ripple_ramp.color_ramp.elements[0].color = (0.004, 0.028, 0.042, 1)</span>
+<span id="L178" class="line"><a href="#L178">178</a>     ripple_ramp.color_ramp.elements[1].color = (0.025, 0.18, 0.20, 1)</span>
+<span id="L179" class="line"><a href="#L179">179</a>     color_mix = nodes.new(&quot;ShaderNodeMixRGB&quot;)</span>
+<span id="L180" class="line"><a href="#L180">180</a>     color_mix.blend_type = &quot;ADD&quot;</span>
+<span id="L181" class="line"><a href="#L181">181</a>     color_mix.inputs[0].default_value = 0.22</span>
+<span id="L182" class="line"><a href="#L182">182</a>     color_mix.location = (170, 80)</span>
+<span id="L183" class="line"><a href="#L183">183</a>     bump_mix = nodes.new(&quot;ShaderNodeMixRGB&quot;)</span>
+<span id="L184" class="line"><a href="#L184">184</a>     bump_mix.blend_type = &quot;MULTIPLY&quot;</span>
+<span id="L185" class="line"><a href="#L185">185</a>     bump_mix.inputs[0].default_value = 0.62</span>
+<span id="L186" class="line"><a href="#L186">186</a>     bump_mix.location = (100, -120)</span>
+<span id="L187" class="line"><a href="#L187">187</a>     bump = nodes.new(&quot;ShaderNodeBump&quot;)</span>
+<span id="L188" class="line"><a href="#L188">188</a>     bump.location = (250, -100)</span>
+<span id="L189" class="line"><a href="#L189">189</a>     bump.inputs[&quot;Strength&quot;].default_value = 0.32</span>
+<span id="L190" class="line"><a href="#L190">190</a>     bump.inputs[&quot;Distance&quot;].default_value = 0.085</span>
+<span id="L191" class="line"><a href="#L191">191</a>     links.new(tex.outputs[&quot;Object&quot;], mapping.inputs[&quot;Vector&quot;])</span>
+<span id="L192" class="line"><a href="#L192">192</a>     links.new(mapping.outputs[&quot;Vector&quot;], noise.inputs[&quot;Vector&quot;])</span>
+<span id="L193" class="line"><a href="#L193">193</a>     links.new(mapping.outputs[&quot;Vector&quot;], short.inputs[&quot;Vector&quot;])</span>
+<span id="L194" class="line"><a href="#L194">194</a>     links.new(mapping.outputs[&quot;Vector&quot;], wave_x.inputs[&quot;Vector&quot;])</span>
+<span id="L195" class="line"><a href="#L195">195</a>     links.new(mapping.outputs[&quot;Vector&quot;], wave_y.inputs[&quot;Vector&quot;])</span>
+<span id="L196" class="line"><a href="#L196">196</a>     links.new(noise.outputs[&quot;Fac&quot;], ramp.inputs[&quot;Fac&quot;])</span>
+<span id="L197" class="line"><a href="#L197">197</a>     links.new(wave_x.outputs[&quot;Color&quot;], bump_mix.inputs[1])</span>
+<span id="L198" class="line"><a href="#L198">198</a>     links.new(wave_y.outputs[&quot;Color&quot;], bump_mix.inputs[2])</span>
+<span id="L199" class="line"><a href="#L199">199</a>     links.new(wave_x.outputs[&quot;Fac&quot;], ripple_ramp.inputs[&quot;Fac&quot;])</span>
+<span id="L200" class="line"><a href="#L200">200</a>     links.new(ramp.outputs[&quot;Color&quot;], color_mix.inputs[1])</span>
+<span id="L201" class="line"><a href="#L201">201</a>     links.new(ripple_ramp.outputs[&quot;Color&quot;], color_mix.inputs[2])</span>
+<span id="L202" class="line"><a href="#L202">202</a>     links.new(bump_mix.outputs[&quot;Color&quot;], bump.inputs[&quot;Height&quot;])</span>
+<span id="L203" class="line"><a href="#L203">203</a>     links.new(bump.outputs[&quot;Normal&quot;], bsdf.inputs[&quot;Normal&quot;])</span>
+<span id="L204" class="line"><a href="#L204">204</a>     links.new(bsdf.outputs[&quot;BSDF&quot;], out.inputs[&quot;Surface&quot;])</span>
+<span id="L205" class="line"><a href="#L205">205</a>     return mat</span>
+<span id="L206" class="line"><a href="#L206">206</a> </span>
+<span id="L207" class="line"><a href="#L207">207</a> </span>
+<span id="L208" class="line"><a href="#L208">208</a> def _make_sand_material():</span>
+<span id="L209" class="line"><a href="#L209">209</a>     mat = bpy.data.materials.new(&quot;MAT_wet_shore_silt&quot;)</span>
+<span id="L210" class="line"><a href="#L210">210</a>     mat.use_nodes = True</span>
+<span id="L211" class="line"><a href="#L211">211</a>     nodes = mat.node_tree.nodes</span>
+<span id="L212" class="line"><a href="#L212">212</a>     bsdf = nodes.get(&quot;Principled BSDF&quot;)</span>
+<span id="L213" class="line"><a href="#L213">213</a>     _set_input(bsdf, [&quot;Base Color&quot;], (0.08, 0.105, 0.10, 1))</span>
+<span id="L214" class="line"><a href="#L214">214</a>     _set_input(bsdf, [&quot;Roughness&quot;], 0.34)</span>
+<span id="L215" class="line"><a href="#L215">215</a>     _set_input(bsdf, [&quot;Specular IOR Level&quot;, &quot;Specular&quot;], 0.3)</span>
+<span id="L216" class="line"><a href="#L216">216</a>     return mat</span>
+<span id="L217" class="line"><a href="#L217">217</a> </span>
+<span id="L218" class="line"><a href="#L218">218</a> </span>
+<span id="L219" class="line"><a href="#L219">219</a> def _make_volume_material(density):</span>
+<span id="L220" class="line"><a href="#L220">220</a>     mat = bpy.data.materials.new(&quot;MAT_mist_volume&quot;)</span>
+<span id="L221" class="line"><a href="#L221">221</a>     mat.use_nodes = True</span>
+<span id="L222" class="line"><a href="#L222">222</a>     nodes = mat.node_tree.nodes</span>
+<span id="L223" class="line"><a href="#L223">223</a>     links = mat.node_tree.links</span>
+<span id="L224" class="line"><a href="#L224">224</a>     nodes.clear()</span>
+<span id="L225" class="line"><a href="#L225">225</a>     out = nodes.new(&quot;ShaderNodeOutputMaterial&quot;)</span>
+<span id="L226" class="line"><a href="#L226">226</a>     vol = nodes.new(&quot;ShaderNodeVolumePrincipled&quot;)</span>
+<span id="L227" class="line"><a href="#L227">227</a>     vol.inputs[&quot;Color&quot;].default_value = (0.80, 0.87, 0.94, 1)</span>
+<span id="L228" class="line"><a href="#L228">228</a>     _set_input(vol, [&quot;Anisotropy&quot;], 0.35)</span>
+<span id="L229" class="line"><a href="#L229">229</a>     tex = nodes.new(&quot;ShaderNodeTexCoord&quot;)</span>
+<span id="L230" class="line"><a href="#L230">230</a>     tex.location = (-720, -80)</span>
+<span id="L231" class="line"><a href="#L231">231</a>     sep = nodes.new(&quot;ShaderNodeSeparateXYZ&quot;)</span>
+<span id="L232" class="line"><a href="#L232">232</a>     sep.location = (-520, -80)</span>
+<span id="L233" class="line"><a href="#L233">233</a>     height = nodes.new(&quot;ShaderNodeMapRange&quot;)</span>
+<span id="L234" class="line"><a href="#L234">234</a>     height.location = (-320, -80)</span>
+<span id="L235" class="line"><a href="#L235">235</a>     height.inputs[&quot;From Min&quot;].default_value = 0.0</span>
+<span id="L236" class="line"><a href="#L236">236</a>     height.inputs[&quot;From Max&quot;].default_value = 1.0</span>
+<span id="L237" class="line"><a href="#L237">237</a>     height.inputs[&quot;To Min&quot;].default_value = 0.65</span>
+<span id="L238" class="line"><a href="#L238">238</a>     height.inputs[&quot;To Max&quot;].default_value = 0.03</span>
+<span id="L239" class="line"><a href="#L239">239</a>     height.clamp = True</span>
+<span id="L240" class="line"><a href="#L240">240</a>     base = nodes.new(&quot;ShaderNodeValue&quot;)</span>
+<span id="L241" class="line"><a href="#L241">241</a>     base.name = &quot;Mist Density&quot;</span>
+<span id="L242" class="line"><a href="#L242">242</a>     base.label = &quot;Mist Density control&quot;</span>
+<span id="L243" class="line"><a href="#L243">243</a>     base.outputs[0].default_value = density</span>
+<span id="L244" class="line"><a href="#L244">244</a>     mult = nodes.new(&quot;ShaderNodeMath&quot;)</span>
+<span id="L245" class="line"><a href="#L245">245</a>     mult.operation = &quot;MULTIPLY&quot;</span>
+<span id="L246" class="line"><a href="#L246">246</a>     mult.location = (-40, -40)</span>
+<span id="L247" class="line"><a href="#L247">247</a>     links.new(tex.outputs[&quot;Generated&quot;], sep.inputs[0])</span>
+<span id="L248" class="line"><a href="#L248">248</a>     links.new(sep.outputs[&quot;Z&quot;], height.inputs[&quot;Value&quot;])</span>
+<span id="L249" class="line"><a href="#L249">249</a>     links.new(base.outputs[0], mult.inputs[0])</span>
+<span id="L250" class="line"><a href="#L250">250</a>     links.new(height.outputs[&quot;Result&quot;], mult.inputs[1])</span>
+<span id="L251" class="line"><a href="#L251">251</a>     links.new(mult.outputs[0], vol.inputs[&quot;Density&quot;])</span>
+<span id="L252" class="line"><a href="#L252">252</a>     links.new(vol.outputs[&quot;Volume&quot;], out.inputs[&quot;Volume&quot;])</span>
+<span id="L253" class="line"><a href="#L253">253</a>     return mat</span>
+<span id="L254" class="line"><a href="#L254">254</a> </span>
+<span id="L255" class="line"><a href="#L255">255</a> </span>
+<span id="L256" class="line"><a href="#L256">256</a> def _rock_mesh(name, scale=(1, 1, 1), segments=18, rings=8, seed=1, peak=False):</span>
+<span id="L257" class="line"><a href="#L257">257</a>     &quot;&quot;&quot;Eroded rock: broad asymmetric shape plus deterministic fractal relief.&quot;&quot;&quot;</span>
+<span id="L258" class="line"><a href="#L258">258</a>     rng = random.Random(seed)</span>
+<span id="L259" class="line"><a href="#L259">259</a>     mesh = bpy.data.meshes.new(name + &quot;_mesh&quot;)</span>
+<span id="L260" class="line"><a href="#L260">260</a>     bm = bmesh.new()</span>
+<span id="L261" class="line"><a href="#L261">261</a>     bmesh.ops.create_icosphere(bm, subdivisions=5 if max(scale) &lt; 3 else 6, radius=1.0)</span>
+<span id="L262" class="line"><a href="#L262">262</a>     bm.to_mesh(mesh)</span>
+<span id="L263" class="line"><a href="#L263">263</a>     bm.free()</span>
+<span id="L264" class="line"><a href="#L264">264</a>     phase = rng.random() * math.tau</span>
+<span id="L265" class="line"><a href="#L265">265</a>     sx, sy, sz = scale</span>
+<span id="L266" class="line"><a href="#L266">266</a>     for vert in mesh.vertices:</span>
+<span id="L267" class="line"><a href="#L267">267</a>         p = vert.co.normalized()</span>
+<span id="L268" class="line"><a href="#L268">268</a>         low = 0.12 * math.sin(2.7 * p.x + phase) + 0.10 * math.cos(3.4 * p.y - phase)</span>
+<span id="L269" class="line"><a href="#L269">269</a>         q = p * 3.2 + Vector((phase, phase * 1.7, -phase))</span>
+<span id="L270" class="line"><a href="#L270">270</a>         coarse = mnoise.noise(q, noise_basis=&#x27;PERLIN_ORIGINAL&#x27;)</span>
+<span id="L271" class="line"><a href="#L271">271</a>         medium = mnoise.noise(q * 3.8, noise_basis=&#x27;PERLIN_ORIGINAL&#x27;)</span>
+<span id="L272" class="line"><a href="#L272">272</a>         fine = mnoise.noise(q * 15.1, noise_basis=&#x27;PERLIN_ORIGINAL&#x27;)</span>
+<span id="L273" class="line"><a href="#L273">273</a>         relief = 0.12 * coarse + 0.035 * medium + 0.012 * fine</span>
+<span id="L274" class="line"><a href="#L274">274</a>         radius = 1.0 + low + relief</span>
+<span id="L275" class="line"><a href="#L275">275</a>         x = p.x * radius</span>
+<span id="L276" class="line"><a href="#L276">276</a>         y = p.y * radius</span>
+<span id="L277" class="line"><a href="#L277">277</a>         z = p.z * (1.0 + relief + 0.13 * math.sin(3.0 * p.x - 2.0 * p.y + phase))</span>
+<span id="L278" class="line"><a href="#L278">278</a>         if z &gt; 0.56:</span>
+<span id="L279" class="line"><a href="#L279">279</a>             z = 0.56 + (z - 0.56) * 0.52</span>
+<span id="L280" class="line"><a href="#L280">280</a>         if z &lt; -0.70:</span>
+<span id="L281" class="line"><a href="#L281">281</a>             z = -0.70 + (z + 0.70) * 0.45</span>
+<span id="L282" class="line"><a href="#L282">282</a>         vert.co = (x * sx, y * sy, z * sz)</span>
+<span id="L283" class="line"><a href="#L283">283</a>     mesh.update()</span>
+<span id="L284" class="line"><a href="#L284">284</a>     return bpy.data.objects.new(name, mesh)</span>
+<span id="L285" class="line"><a href="#L285">285</a> </span>
+<span id="L286" class="line"><a href="#L286">286</a> </span>
+<span id="L287" class="line"><a href="#L287">287</a> def _add_rock(collection, mat, name, location, scale, seed, peak=False, rotation=0.0):</span>
+<span id="L288" class="line"><a href="#L288">288</a>     obj = _rock_mesh(name, scale, segments=22 if scale[2] &lt; 3 else 18, rings=9, seed=seed, peak=peak)</span>
+<span id="L289" class="line"><a href="#L289">289</a>     collection.objects.link(obj)</span>
+<span id="L290" class="line"><a href="#L290">290</a>     obj.location = location</span>
+<span id="L291" class="line"><a href="#L291">291</a>     obj.rotation_euler[2] = rotation</span>
+<span id="L292" class="line"><a href="#L292">292</a>     obj.data.materials.append(mat)</span>
+<span id="L293" class="line"><a href="#L293">293</a>     for p in obj.data.polygons:</span>
+<span id="L294" class="line"><a href="#L294">294</a>         p.use_smooth = True</span>
+<span id="L295" class="line"><a href="#L295">295</a>     return obj</span>
+<span id="L296" class="line"><a href="#L296">296</a> </span>
+<span id="L297" class="line"><a href="#L297">297</a> </span>
+<span id="L298" class="line"><a href="#L298">298</a> def _add_shoreline(collection, mat, side, seed):</span>
+<span id="L299" class="line"><a href="#L299">299</a>     rng = random.Random(seed)</span>
+<span id="L300" class="line"><a href="#L300">300</a>     # A low irregular shelf at either edge keeps the water framed right down to</span>
+<span id="L301" class="line"><a href="#L301">301</a>     # the lens without making the scene read as a dry valley.</span>
+<span id="L302" class="line"><a href="#L302">302</a>     for i in range(8):</span>
+<span id="L303" class="line"><a href="#L303">303</a>         x = side * (4.5 + 1.0 * i + rng.uniform(-0.35, 0.35))</span>
+<span id="L304" class="line"><a href="#L304">304</a>         y = -7.5 + i * 5.2 + rng.uniform(-1.0, 1.0)</span>
+<span id="L305" class="line"><a href="#L305">305</a>         scale = (1.7 + rng.uniform(-0.2, 0.45), 2.0 + rng.uniform(-0.2, 0.5), 0.45 + rng.uniform(-0.12, 0.3))</span>
+<span id="L306" class="line"><a href="#L306">306</a>         _add_rock(collection, mat, f&quot;shore_{side:+d}_{i:02d}&quot;, (x, y, 0.10), scale, seed + i, peak=False, rotation=rng.random() * math.tau)</span>
+<span id="L307" class="line"><a href="#L307">307</a> </span>
+<span id="L308" class="line"><a href="#L308">308</a> </span>
+<span id="L309" class="line"><a href="#L309">309</a> def _add_sun(scene):</span>
+<span id="L310" class="line"><a href="#L310">310</a>     data = bpy.data.lights.new(&quot;KEY_amber_dawn&quot;, &quot;SUN&quot;)</span>
+<span id="L311" class="line"><a href="#L311">311</a>     data.energy = DEFAULTS[&quot;key_energy&quot;]</span>
+<span id="L312" class="line"><a href="#L312">312</a>     data.angle = math.radians(1.2)</span>
+<span id="L313" class="line"><a href="#L313">313</a>     data.color = (1.0, 0.69, 0.40)</span>
+<span id="L314" class="line"><a href="#L314">314</a>     obj = bpy.data.objects.new(&quot;KEY_amber_dawn&quot;, data)</span>
+<span id="L315" class="line"><a href="#L315">315</a>     scene.collection.objects.link(obj)</span>
+<span id="L316" class="line"><a href="#L316">316</a>     # Low backlight from the warm horizon, grazing across wet planes toward the</span>
+<span id="L317" class="line"><a href="#L317">317</a>     # camera instead of flattening the scene from overhead.</span>
+<span id="L318" class="line"><a href="#L318">318</a>     obj.rotation_euler = Vector((-0.4, -1.0, -0.18)).to_track_quat(&quot;-Z&quot;, &quot;Y&quot;).to_euler()</span>
+<span id="L319" class="line"><a href="#L319">319</a>     return obj</span>
+<span id="L320" class="line"><a href="#L320">320</a> </span>
+<span id="L321" class="line"><a href="#L321">321</a> </span>
+<span id="L322" class="line"><a href="#L322">322</a> def _add_fill(scene):</span>
+<span id="L323" class="line"><a href="#L323">323</a>     data = bpy.data.lights.new(&quot;FILL_cyan_sky&quot;, &quot;AREA&quot;)</span>
+<span id="L324" class="line"><a href="#L324">324</a>     data.energy = 6500</span>
+<span id="L325" class="line"><a href="#L325">325</a>     data.shape = &quot;DISK&quot;</span>
+<span id="L326" class="line"><a href="#L326">326</a>     data.size = 18</span>
+<span id="L327" class="line"><a href="#L327">327</a>     data.color = (0.53, 0.70, 1.0)</span>
+<span id="L328" class="line"><a href="#L328">328</a>     obj = bpy.data.objects.new(&quot;FILL_cyan_sky&quot;, data)</span>
+<span id="L329" class="line"><a href="#L329">329</a>     scene.collection.objects.link(obj)</span>
+<span id="L330" class="line"><a href="#L330">330</a>     obj.location = (-10, -8, 15)</span>
+<span id="L331" class="line"><a href="#L331">331</a>     _look_at(obj, (0, 18, 1.5))</span>
+<span id="L332" class="line"><a href="#L332">332</a>     return obj</span>
+<span id="L333" class="line"><a href="#L333">333</a> </span>
+<span id="L334" class="line"><a href="#L334">334</a> </span>
+<span id="L335" class="line"><a href="#L335">335</a> def _add_water_skim(scene):</span>
+<span id="L336" class="line"><a href="#L336">336</a>     data = bpy.data.lights.new(&quot;SKIM_cyan_ripples&quot;, &quot;AREA&quot;)</span>
+<span id="L337" class="line"><a href="#L337">337</a>     data.energy = 260</span>
+<span id="L338" class="line"><a href="#L338">338</a>     data.shape = &quot;RECTANGLE&quot;</span>
+<span id="L339" class="line"><a href="#L339">339</a>     data.size = 8</span>
+<span id="L340" class="line"><a href="#L340">340</a>     data.size_y = 4</span>
+<span id="L341" class="line"><a href="#L341">341</a>     data.color = (0.12, 0.40, 0.46)</span>
+<span id="L342" class="line"><a href="#L342">342</a>     obj = bpy.data.objects.new(&quot;SKIM_cyan_ripples&quot;, data)</span>
+<span id="L343" class="line"><a href="#L343">343</a>     scene.collection.objects.link(obj)</span>
+<span id="L344" class="line"><a href="#L344">344</a>     obj.location = (-7, -12, 4.5)</span>
+<span id="L345" class="line"><a href="#L345">345</a>     _look_at(obj, (0, 9, 0))</span>
+<span id="L346" class="line"><a href="#L346">346</a>     return obj</span>
+<span id="L347" class="line"><a href="#L347">347</a> </span>
+<span id="L348" class="line"><a href="#L348">348</a> </span>
+<span id="L349" class="line"><a href="#L349">349</a> def _add_warm_window(scene):</span>
+<span id="L350" class="line"><a href="#L350">350</a>     data = bpy.data.lights.new(&quot;GLOW_horizon_window&quot;, &quot;AREA&quot;)</span>
+<span id="L351" class="line"><a href="#L351">351</a>     data.energy = 42</span>
+<span id="L352" class="line"><a href="#L352">352</a>     data.shape = &quot;RECTANGLE&quot;</span>
+<span id="L353" class="line"><a href="#L353">353</a>     data.size = 10</span>
+<span id="L354" class="line"><a href="#L354">354</a>     data.size_y = 3</span>
+<span id="L355" class="line"><a href="#L355">355</a>     data.color = (1.0, 0.16, 0.035)</span>
+<span id="L356" class="line"><a href="#L356">356</a>     obj = bpy.data.objects.new(&quot;GLOW_horizon_window&quot;, data)</span>
+<span id="L357" class="line"><a href="#L357">357</a>     scene.collection.objects.link(obj)</span>
+<span id="L358" class="line"><a href="#L358">358</a>     obj.location = (2, 52, 12)</span>
+<span id="L359" class="line"><a href="#L359">359</a>     _look_at(obj, (0, 18, 1.0))</span>
+<span id="L360" class="line"><a href="#L360">360</a>     return obj</span>
+<span id="L361" class="line"><a href="#L361">361</a> </span>
+<span id="L362" class="line"><a href="#L362">362</a> </span>
+<span id="L363" class="line"><a href="#L363">363</a> def _add_camera(scene):</span>
+<span id="L364" class="line"><a href="#L364">364</a>     data = bpy.data.cameras.new(&quot;CAM_low_waterline&quot;)</span>
+<span id="L365" class="line"><a href="#L365">365</a>     data.lens = 31</span>
+<span id="L366" class="line"><a href="#L366">366</a>     data.sensor_width = 36</span>
+<span id="L367" class="line"><a href="#L367">367</a>     data.dof.use_dof = True</span>
+<span id="L368" class="line"><a href="#L368">368</a>     data.dof.focus_distance = 18</span>
+<span id="L369" class="line"><a href="#L369">369</a>     data.dof.aperture_fstop = 16.0</span>
+<span id="L370" class="line"><a href="#L370">370</a>     cam = bpy.data.objects.new(&quot;CAM_low_waterline&quot;, data)</span>
+<span id="L371" class="line"><a href="#L371">371</a>     scene.collection.objects.link(cam)</span>
+<span id="L372" class="line"><a href="#L372">372</a>     cam.location = (0.0, -18.5, 1.42)</span>
+<span id="L373" class="line"><a href="#L373">373</a>     _look_at(cam, (0, 28, 0.35))</span>
+<span id="L374" class="line"><a href="#L374">374</a>     scene.camera = cam</span>
+<span id="L375" class="line"><a href="#L375">375</a>     return cam</span>
+<span id="L376" class="line"><a href="#L376">376</a> </span>
+<span id="L377" class="line"><a href="#L377">377</a> </span>
+<span id="L378" class="line"><a href="#L378">378</a> def _add_water(collection, mat):</span>
+<span id="L379" class="line"><a href="#L379">379</a>     bpy.ops.mesh.primitive_grid_add(x_subdivisions=120, y_subdivisions=180, size=2, location=(0, 25, -0.04))</span>
+<span id="L380" class="line"><a href="#L380">380</a>     water = bpy.context.object</span>
+<span id="L381" class="line"><a href="#L381">381</a>     water.name = &quot;WATER_still_ripples&quot;</span>
+<span id="L382" class="line"><a href="#L382">382</a>     water.scale = (32, 58, 1)</span>
+<span id="L383" class="line"><a href="#L383">383</a>     # Subtle deterministic displacement gives the water a real, low-frequency</span>
+<span id="L384" class="line"><a href="#L384">384</a>     # surface break in addition to the layered shader normals.</span>
+<span id="L385" class="line"><a href="#L385">385</a>     for vert in water.data.vertices:</span>
+<span id="L386" class="line"><a href="#L386">386</a>         wx = vert.co.x * 32.0</span>
+<span id="L387" class="line"><a href="#L387">387</a>         wy = vert.co.y * 58.0</span>
+<span id="L388" class="line"><a href="#L388">388</a>         vert.co.z = (0.060 * math.sin(0.42 * wx + 0.095 * wy) +</span>
+<span id="L389" class="line"><a href="#L389">389</a>                      0.030 * math.sin(0.93 * wx - 0.16 * wy + 1.7) +</span>
+<span id="L390" class="line"><a href="#L390">390</a>                      0.015 * math.sin(1.8 * wx + 0.41 * wy))</span>
+<span id="L391" class="line"><a href="#L391">391</a>     water.data.update()</span>
+<span id="L392" class="line"><a href="#L392">392</a>     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)</span>
+<span id="L393" class="line"><a href="#L393">393</a>     for poly in water.data.polygons:</span>
+<span id="L394" class="line"><a href="#L394">394</a>         poly.use_smooth = True</span>
+<span id="L395" class="line"><a href="#L395">395</a>     water.data.materials.append(mat)</span>
+<span id="L396" class="line"><a href="#L396">396</a>     # Grid normals are stable and the shader bump supplies the small ripples.</span>
+<span id="L397" class="line"><a href="#L397">397</a>     return water</span>
+<span id="L398" class="line"><a href="#L398">398</a> </span>
+<span id="L399" class="line"><a href="#L399">399</a> </span>
+<span id="L400" class="line"><a href="#L400">400</a> def _make_sky_backdrop_material():</span>
+<span id="L401" class="line"><a href="#L401">401</a>     mat = bpy.data.materials.new(&quot;MAT_procedural_dawn_backdrop&quot;)</span>
+<span id="L402" class="line"><a href="#L402">402</a>     mat.use_nodes = True</span>
+<span id="L403" class="line"><a href="#L403">403</a>     nodes = mat.node_tree.nodes</span>
+<span id="L404" class="line"><a href="#L404">404</a>     links = mat.node_tree.links</span>
+<span id="L405" class="line"><a href="#L405">405</a>     nodes.clear()</span>
+<span id="L406" class="line"><a href="#L406">406</a>     tex = nodes.new(&quot;ShaderNodeTexCoord&quot;)</span>
+<span id="L407" class="line"><a href="#L407">407</a>     sep = nodes.new(&quot;ShaderNodeSeparateXYZ&quot;)</span>
+<span id="L408" class="line"><a href="#L408">408</a>     ramp = nodes.new(&quot;ShaderNodeValToRGB&quot;)</span>
+<span id="L409" class="line"><a href="#L409">409</a>     ramp.color_ramp.elements.remove(ramp.color_ramp.elements[1])</span>
+<span id="L410" class="line"><a href="#L410">410</a>     e0 = ramp.color_ramp.elements[0]</span>
+<span id="L411" class="line"><a href="#L411">411</a>     e0.position = 0.0</span>
+<span id="L412" class="line"><a href="#L412">412</a>     e0.color = (0.52, 0.12, 0.035, 1)</span>
+<span id="L413" class="line"><a href="#L413">413</a>     e1 = ramp.color_ramp.elements.new(0.25)</span>
+<span id="L414" class="line"><a href="#L414">414</a>     e1.color = (0.34, 0.11, 0.10, 1)</span>
+<span id="L415" class="line"><a href="#L415">415</a>     e2 = ramp.color_ramp.elements.new(0.58)</span>
+<span id="L416" class="line"><a href="#L416">416</a>     e2.color = (0.10, 0.16, 0.38, 1)</span>
+<span id="L417" class="line"><a href="#L417">417</a>     e3 = ramp.color_ramp.elements.new(1.0)</span>
+<span id="L418" class="line"><a href="#L418">418</a>     e3.color = (0.02, 0.055, 0.20, 1)</span>
+<span id="L419" class="line"><a href="#L419">419</a>     emission = nodes.new(&quot;ShaderNodeEmission&quot;)</span>
+<span id="L420" class="line"><a href="#L420">420</a>     _set_input(emission, [&quot;Strength&quot;], 1.10)</span>
+<span id="L421" class="line"><a href="#L421">421</a>     out = nodes.new(&quot;ShaderNodeOutputMaterial&quot;)</span>
+<span id="L422" class="line"><a href="#L422">422</a>     links.new(tex.outputs[&quot;Generated&quot;], sep.inputs[0])</span>
+<span id="L423" class="line"><a href="#L423">423</a>     links.new(sep.outputs[&quot;Y&quot;], ramp.inputs[&quot;Fac&quot;])</span>
+<span id="L424" class="line"><a href="#L424">424</a>     links.new(ramp.outputs[&quot;Color&quot;], emission.inputs[&quot;Color&quot;])</span>
+<span id="L425" class="line"><a href="#L425">425</a>     links.new(emission.outputs[&quot;Emission&quot;], out.inputs[&quot;Surface&quot;])</span>
+<span id="L426" class="line"><a href="#L426">426</a>     return mat</span>
+<span id="L427" class="line"><a href="#L427">427</a> </span>
+<span id="L428" class="line"><a href="#L428">428</a> </span>
+<span id="L429" class="line"><a href="#L429">429</a> def _add_sky_backdrop(collection):</span>
+<span id="L430" class="line"><a href="#L430">430</a>     bpy.ops.mesh.primitive_plane_add(size=2, location=(0, 92, 35), rotation=(math.pi / 2, 0, 0))</span>
+<span id="L431" class="line"><a href="#L431">431</a>     sky = bpy.context.object</span>
+<span id="L432" class="line"><a href="#L432">432</a>     sky.name = &quot;SKY_procedural_dawn_gradient&quot;</span>
+<span id="L433" class="line"><a href="#L433">433</a>     sky.scale = (72, 50, 1)</span>
+<span id="L434" class="line"><a href="#L434">434</a>     sky.data.materials.append(_make_sky_backdrop_material())</span>
+<span id="L435" class="line"><a href="#L435">435</a>     return sky</span>
+<span id="L436" class="line"><a href="#L436">436</a> </span>
+<span id="L437" class="line"><a href="#L437">437</a> </span>
+<span id="L438" class="line"><a href="#L438">438</a> def _add_volume(scene, density):</span>
+<span id="L439" class="line"><a href="#L439">439</a>     bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 24, 12))</span>
+<span id="L440" class="line"><a href="#L440">440</a>     volume = bpy.context.object</span>
+<span id="L441" class="line"><a href="#L441">441</a>     volume.name = &quot;ATMOSPHERE_mist_volume&quot;</span>
+<span id="L442" class="line"><a href="#L442">442</a>     volume.scale = (34, 42, 13)</span>
+<span id="L443" class="line"><a href="#L443">443</a>     volume.data.materials.append(_make_volume_material(density))</span>
+<span id="L444" class="line"><a href="#L444">444</a>     volume.display_type = &quot;WIRE&quot;</span>
+<span id="L445" class="line"><a href="#L445">445</a>     return volume</span>
+<span id="L446" class="line"><a href="#L446">446</a> </span>
+<span id="L447" class="line"><a href="#L447">447</a> </span>
+<span id="L448" class="line"><a href="#L448">448</a> def _configure_sky(scene):</span>
+<span id="L449" class="line"><a href="#L449">449</a>     &quot;&quot;&quot;Set a clear cool-overhead, warm-horizon dawn sky in world nodes.&quot;&quot;&quot;</span>
+<span id="L450" class="line"><a href="#L450">450</a>     world = scene.world or bpy.data.worlds.new(&quot;WORLD_dawn_inlet&quot;)</span>
+<span id="L451" class="line"><a href="#L451">451</a>     scene.world = world</span>
+<span id="L452" class="line"><a href="#L452">452</a>     world.use_nodes = True</span>
+<span id="L453" class="line"><a href="#L453">453</a>     nodes = world.node_tree.nodes</span>
+<span id="L454" class="line"><a href="#L454">454</a>     links = world.node_tree.links</span>
+<span id="L455" class="line"><a href="#L455">455</a>     nodes.clear()</span>
+<span id="L456" class="line"><a href="#L456">456</a>     sky = nodes.new(&quot;ShaderNodeTexSky&quot;)</span>
+<span id="L457" class="line"><a href="#L457">457</a>     sky.sky_type = &quot;MULTIPLE_SCATTERING&quot;</span>
+<span id="L458" class="line"><a href="#L458">458</a>     sky.sun_disc = False</span>
+<span id="L459" class="line"><a href="#L459">459</a>     sky.sun_elevation = math.radians(7.0)</span>
+<span id="L460" class="line"><a href="#L460">460</a>     sky.sun_rotation = math.radians(170)</span>
+<span id="L461" class="line"><a href="#L461">461</a>     sky.altitude = 0.35</span>
+<span id="L462" class="line"><a href="#L462">462</a>     if hasattr(sky, &quot;air_density&quot;):</span>
+<span id="L463" class="line"><a href="#L463">463</a>         sky.air_density = 1.15</span>
+<span id="L464" class="line"><a href="#L464">464</a>     if hasattr(sky, &quot;turbidity&quot;):</span>
+<span id="L465" class="line"><a href="#L465">465</a>         sky.turbidity = 2.2</span>
+<span id="L466" class="line"><a href="#L466">466</a>     if hasattr(sky, &quot;dust_density&quot;):</span>
+<span id="L467" class="line"><a href="#L467">467</a>         sky.dust_density = 0.55</span>
+<span id="L468" class="line"><a href="#L468">468</a>     if hasattr(sky, &quot;ozone_density&quot;):</span>
+<span id="L469" class="line"><a href="#L469">469</a>         sky.ozone_density = 0.28</span>
+<span id="L470" class="line"><a href="#L470">470</a>     sky.location = (-320, 40)</span>
+<span id="L471" class="line"><a href="#L471">471</a>     bg = nodes.new(&quot;ShaderNodeBackground&quot;)</span>
+<span id="L472" class="line"><a href="#L472">472</a>     bg.inputs[&quot;Strength&quot;].default_value = 0.045</span>
+<span id="L473" class="line"><a href="#L473">473</a>     bg.location = (-40, 40)</span>
+<span id="L474" class="line"><a href="#L474">474</a>     coord = nodes.new(&quot;ShaderNodeTexCoord&quot;)</span>
+<span id="L475" class="line"><a href="#L475">475</a>     coord.location = (-720, -180)</span>
+<span id="L476" class="line"><a href="#L476">476</a>     sep = nodes.new(&quot;ShaderNodeSeparateXYZ&quot;)</span>
+<span id="L477" class="line"><a href="#L477">477</a>     sep.location = (-520, -180)</span>
+<span id="L478" class="line"><a href="#L478">478</a>     horizon = nodes.new(&quot;ShaderNodeMapRange&quot;)</span>
+<span id="L479" class="line"><a href="#L479">479</a>     horizon.location = (-340, -180)</span>
+<span id="L480" class="line"><a href="#L480">480</a>     horizon.inputs[&quot;From Min&quot;].default_value = -0.16</span>
+<span id="L481" class="line"><a href="#L481">481</a>     horizon.inputs[&quot;From Max&quot;].default_value = 0.30</span>
+<span id="L482" class="line"><a href="#L482">482</a>     horizon.inputs[&quot;To Min&quot;].default_value = 0.0</span>
+<span id="L483" class="line"><a href="#L483">483</a>     horizon.inputs[&quot;To Max&quot;].default_value = 1.0</span>
+<span id="L484" class="line"><a href="#L484">484</a>     horizon.clamp = True</span>
+<span id="L485" class="line"><a href="#L485">485</a>     gradient = nodes.new(&quot;ShaderNodeValToRGB&quot;)</span>
+<span id="L486" class="line"><a href="#L486">486</a>     gradient.location = (-100, -170)</span>
+<span id="L487" class="line"><a href="#L487">487</a>     gradient.color_ramp.elements.remove(gradient.color_ramp.elements[1])</span>
+<span id="L488" class="line"><a href="#L488">488</a>     g0 = gradient.color_ramp.elements[0]</span>
+<span id="L489" class="line"><a href="#L489">489</a>     g0.position = 0.0</span>
+<span id="L490" class="line"><a href="#L490">490</a>     g0.color = (0.16, 0.045, 0.026, 1)</span>
+<span id="L491" class="line"><a href="#L491">491</a>     g1 = gradient.color_ramp.elements.new(0.22)</span>
+<span id="L492" class="line"><a href="#L492">492</a>     g1.color = (0.17, 0.075, 0.065, 1)</span>
+<span id="L493" class="line"><a href="#L493">493</a>     g2 = gradient.color_ramp.elements.new(0.56)</span>
+<span id="L494" class="line"><a href="#L494">494</a>     g2.color = (0.050, 0.075, 0.145, 1)</span>
+<span id="L495" class="line"><a href="#L495">495</a>     g3 = gradient.color_ramp.elements.new(1.0)</span>
+<span id="L496" class="line"><a href="#L496">496</a>     g3.color = (0.008, 0.018, 0.055, 1)</span>
+<span id="L497" class="line"><a href="#L497">497</a>     # A small contribution from the physically based sky keeps the gradient</span>
+<span id="L498" class="line"><a href="#L498">498</a>     # atmosphere alive while the authored ramp preserves the filmic palette.</span>
+<span id="L499" class="line"><a href="#L499">499</a>     mix = nodes.new(&quot;ShaderNodeMixRGB&quot;)</span>
+<span id="L500" class="line"><a href="#L500">500</a>     mix.blend_type = &quot;MIX&quot;</span>
+<span id="L501" class="line"><a href="#L501">501</a>     mix.inputs[0].default_value = 0.16</span>
+<span id="L502" class="line"><a href="#L502">502</a>     mix.location = (80, -50)</span>
+<span id="L503" class="line"><a href="#L503">503</a>     links.new(coord.outputs[&quot;Normal&quot;], sep.inputs[0])</span>
+<span id="L504" class="line"><a href="#L504">504</a>     links.new(sep.outputs[&quot;Z&quot;], horizon.inputs[&quot;Value&quot;])</span>
+<span id="L505" class="line"><a href="#L505">505</a>     links.new(horizon.outputs[&quot;Result&quot;], gradient.inputs[&quot;Fac&quot;])</span>
+<span id="L506" class="line"><a href="#L506">506</a>     links.new(gradient.outputs[&quot;Color&quot;], mix.inputs[1])</span>
+<span id="L507" class="line"><a href="#L507">507</a>     links.new(sky.outputs[&quot;Color&quot;], mix.inputs[2])</span>
+<span id="L508" class="line"><a href="#L508">508</a>     out = nodes.new(&quot;ShaderNodeOutputWorld&quot;)</span>
+<span id="L509" class="line"><a href="#L509">509</a>     out.location = (220, 40)</span>
+<span id="L510" class="line"><a href="#L510">510</a>     links.new(sky.outputs[&quot;Color&quot;], bg.inputs[&quot;Color&quot;])</span>
+<span id="L511" class="line"><a href="#L511">511</a>     links.new(bg.outputs[&quot;Background&quot;], out.inputs[&quot;Surface&quot;])</span>
+<span id="L512" class="line"><a href="#L512">512</a> </span>
+<span id="L513" class="line"><a href="#L513">513</a> </span>
+<span id="L514" class="line"><a href="#L514">514</a> def _configure_render(scene):</span>
+<span id="L515" class="line"><a href="#L515">515</a>     scene.render.engine = &quot;BLENDER_EEVEE&quot;</span>
+<span id="L516" class="line"><a href="#L516">516</a>     # The direct render command switches to Cycles below after the scene is</span>
+<span id="L517" class="line"><a href="#L517">517</a>     # built. Eevee remains a responsive viewport fallback for inspection.</span>
+<span id="L518" class="line"><a href="#L518">518</a>     scene.render.resolution_x = 960</span>
+<span id="L519" class="line"><a href="#L519">519</a>     scene.render.resolution_y = 540</span>
+<span id="L520" class="line"><a href="#L520">520</a>     scene.render.resolution_percentage = 100</span>
+<span id="L521" class="line"><a href="#L521">521</a>     scene.render.image_settings.file_format = &quot;PNG&quot;</span>
+<span id="L522" class="line"><a href="#L522">522</a>     scene.render.film_transparent = False</span>
+<span id="L523" class="line"><a href="#L523">523</a>     scene.render.image_settings.color_mode = &quot;RGBA&quot;</span>
+<span id="L524" class="line"><a href="#L524">524</a>     scene.render.image_settings.color_depth = &quot;8&quot;</span>
+<span id="L525" class="line"><a href="#L525">525</a>     scene.render.use_file_extension = True</span>
+<span id="L526" class="line"><a href="#L526">526</a>     scene.render.filepath = &quot;inlet_preview.png&quot;</span>
+<span id="L527" class="line"><a href="#L527">527</a>     scene.render.image_settings.color_mode = &quot;RGB&quot;</span>
+<span id="L528" class="line"><a href="#L528">528</a>     scene.view_settings.look = &quot;AgX - Medium High Contrast&quot;</span>
+<span id="L529" class="line"><a href="#L529">529</a>     scene.view_settings.exposure = -0.65</span>
+<span id="L530" class="line"><a href="#L530">530</a>     scene.render.use_compositing = True</span>
+<span id="L531" class="line"><a href="#L531">531</a>     scene.render.image_settings.file_format = &quot;PNG&quot;</span>
+<span id="L532" class="line"><a href="#L532">532</a>     scene.world.color = (0.004, 0.012, 0.02)</span>
+<span id="L533" class="line"><a href="#L533">533</a>     scene[&quot;scene_schema&quot;] = &quot;cinematic-inlet-1&quot;</span>
+<span id="L534" class="line"><a href="#L534">534</a>     scene[&quot;defaults&quot;] = str(DEFAULTS)</span>
+<span id="L535" class="line"><a href="#L535">535</a> </span>
+<span id="L536" class="line"><a href="#L536">536</a> </span>
+<span id="L537" class="line"><a href="#L537">537</a> def _build_compositor(scene):</span>
+<span id="L538" class="line"><a href="#L538">538</a>     # Blender 5.1&#x27;s compositor API has moved to the new node-group interface;</span>
+<span id="L539" class="line"><a href="#L539">539</a>     # the scene deliberately keeps the render path dependency-free.  The</span>
+<span id="L540" class="line"><a href="#L540">540</a>     # atmospheric bloom comes from the physical volume and wide area window.</span>
+<span id="L541" class="line"><a href="#L541">541</a>     return None</span>
+<span id="L542" class="line"><a href="#L542">542</a> </span>
+<span id="L543" class="line"><a href="#L543">543</a> </span>
+<span id="L544" class="line"><a href="#L544">544</a> def build_scene(scene=None):</span>
+<span id="L545" class="line"><a href="#L545">545</a>     &quot;&quot;&quot;Clear and build the deterministic inlet. Returns the Blender scene.&quot;&quot;&quot;</span>
+<span id="L546" class="line"><a href="#L546">546</a>     if scene is None:</span>
+<span id="L547" class="line"><a href="#L547">547</a>         scene = bpy.context.scene</span>
+<span id="L548" class="line"><a href="#L548">548</a>     bpy.ops.object.select_all(action=&quot;SELECT&quot;)</span>
+<span id="L549" class="line"><a href="#L549">549</a>     bpy.ops.object.delete(use_global=False)</span>
+<span id="L550" class="line"><a href="#L550">550</a>     for datablocks in (bpy.data.meshes, bpy.data.curves, bpy.data.materials, bpy.data.cameras, bpy.data.lights):</span>
+<span id="L551" class="line"><a href="#L551">551</a>         # Do not remove data blocks from unrelated linked scenes when imported.</span>
+<span id="L552" class="line"><a href="#L552">552</a>         pass</span>
+<span id="L553" class="line"><a href="#L553">553</a>     for child in list(scene.collection.children):</span>
+<span id="L554" class="line"><a href="#L554">554</a>         scene.collection.children.unlink(child)</span>
+<span id="L555" class="line"><a href="#L555">555</a>     scene.render.engine = &quot;BLENDER_EEVEE&quot;</span>
+<span id="L556" class="line"><a href="#L556">556</a>     rock_mat = _make_rock_material()</span>
+<span id="L557" class="line"><a href="#L557">557</a>     water_mat = _make_water_material()</span>
+<span id="L558" class="line"><a href="#L558">558</a>     shore_mat = _make_sand_material()</span>
+<span id="L559" class="line"><a href="#L559">559</a>     rocks = bpy.data.collections.new(&quot;ROCKS_procedural_basalt&quot;)</span>
+<span id="L560" class="line"><a href="#L560">560</a>     scene.collection.children.link(rocks)</span>
+<span id="L561" class="line"><a href="#L561">561</a>     water_collection = bpy.data.collections.new(&quot;WATER_and_SHORE&quot;)</span>
+<span id="L562" class="line"><a href="#L562">562</a>     scene.collection.children.link(water_collection)</span>
+<span id="L563" class="line"><a href="#L563">563</a> </span>
+<span id="L564" class="line"><a href="#L564">564</a>     _add_water(water_collection, water_mat)</span>
+<span id="L565" class="line"><a href="#L565">565</a>     _add_shoreline(rocks, rock_mat, -1, 110)</span>
+<span id="L566" class="line"><a href="#L566">566</a>     # The left wall is a dominant, broken cliff; the right bank is deliberately</span>
+<span id="L567" class="line"><a href="#L567">567</a>     # lower and discontinuous so the inlet opens toward the dawn.</span>
+<span id="L568" class="line"><a href="#L568">568</a>     foreground = [</span>
+<span id="L569" class="line"><a href="#L569">569</a>         (-7.1, -5.2, 0.55, (4.6, 5.2, 6.6), 17),</span>
+<span id="L570" class="line"><a href="#L570">570</a>         (-7.8, 4.0, 0.20, (3.3, 3.8, 5.0), 41),</span>
+<span id="L571" class="line"><a href="#L571">571</a>         (-5.8, 11.0, 0.08, (2.6, 3.4, 3.6), 67),</span>
+<span id="L572" class="line"><a href="#L572">572</a>         (5.2, -6.0, 0.18, (2.6, 3.1, 2.0), 29),</span>
+<span id="L573" class="line"><a href="#L573">573</a>         (6.8, -0.8, 0.14, (2.1, 2.6, 2.4), 53),</span>
+<span id="L574" class="line"><a href="#L574">574</a>         (5.4, 7.6, 0.12, (2.0, 2.7, 2.1), 79),</span>
+<span id="L575" class="line"><a href="#L575">575</a>         (3.7, 13.3, 0.05, (1.3, 1.8, 1.5), 87),</span>
+<span id="L576" class="line"><a href="#L576">576</a>     ]</span>
+<span id="L577" class="line"><a href="#L577">577</a>     for i, (x, y, z, sc, seed) in enumerate(foreground):</span>
+<span id="L578" class="line"><a href="#L578">578</a>         _add_rock(rocks, rock_mat, f&quot;foreground_mass_{i:02d}&quot;, (x, y, z), sc, seed, peak=True, rotation=0.2 * i)</span>
+<span id="L579" class="line"><a href="#L579">579</a>     # Distant staggered stacks create depth and scale.  Their smaller geometry</span>
+<span id="L580" class="line"><a href="#L580">580</a>     # is still fully procedural, with no impostor images or external assets.</span>
+<span id="L581" class="line"><a href="#L581">581</a>     distant = [</span>
+<span id="L582" class="line"><a href="#L582">582</a>         (-12.5, 38.0, 0.0, (3.5, 3.0, 8.0), 301),</span>
+<span id="L583" class="line"><a href="#L583">583</a>         (-5.6, 46.0, 0.0, (2.1, 2.2, 5.5), 313),</span>
+<span id="L584" class="line"><a href="#L584">584</a>         (1.8, 55.0, 0.0, (1.8, 2.1, 4.2), 327),</span>
+<span id="L585" class="line"><a href="#L585">585</a>         (7.5, 41.0, 0.0, (2.6, 2.4, 6.5), 337),</span>
+<span id="L586" class="line"><a href="#L586">586</a>         (13.5, 49.0, 0.0, (3.7, 3.0, 7.5), 349),</span>
+<span id="L587" class="line"><a href="#L587">587</a>         (-1.8, 64.0, 0.0, (2.5, 2.8, 5.7), 359),</span>
+<span id="L588" class="line"><a href="#L588">588</a>     ]</span>
+<span id="L589" class="line"><a href="#L589">589</a>     for i, (x, y, z, sc, seed) in enumerate(distant):</span>
+<span id="L590" class="line"><a href="#L590">590</a>         _add_rock(rocks, rock_mat, f&quot;sea_stack_{i:02d}&quot;, (x, y, z), sc, seed, peak=True, rotation=0.13 * i)</span>
+<span id="L591" class="line"><a href="#L591">591</a>     # Small mid-channel rocks break the otherwise perfect reflection line.</span>
+<span id="L592" class="line"><a href="#L592">592</a>     for i, (x, y, sc) in enumerate([(-2.1, 15.0, (0.9, 1.6, 1.1)), (2.0, 22.5, (1.2, 1.4, 1.6)), (-3.2, 29.5, (1.1, 1.4, 1.9))]):</span>
+<span id="L593" class="line"><a href="#L593">593</a>         _add_rock(rocks, rock_mat, f&quot;channel_rock_{i:02d}&quot;, (x, y, 0.0), sc, 501 + i, peak=True, rotation=0.4 * i)</span>
+<span id="L594" class="line"><a href="#L594">594</a> </span>
+<span id="L595" class="line"><a href="#L595">595</a>     cam = _add_camera(scene)</span>
+<span id="L596" class="line"><a href="#L596">596</a>     _add_sun(scene)</span>
+<span id="L597" class="line"><a href="#L597">597</a>     _add_fill(scene)</span>
+<span id="L598" class="line"><a href="#L598">598</a>     _add_water_skim(scene)</span>
+<span id="L599" class="line"><a href="#L599">599</a>     _add_warm_window(scene)</span>
+<span id="L600" class="line"><a href="#L600">600</a>     _add_volume(scene, DEFAULTS[&quot;mist_density&quot;])</span>
+<span id="L601" class="line"><a href="#L601">601</a>     _configure_sky(scene)</span>
+<span id="L602" class="line"><a href="#L602">602</a>     _configure_render(scene)</span>
+<span id="L603" class="line"><a href="#L603">603</a>     _build_compositor(scene)</span>
+<span id="L604" class="line"><a href="#L604">604</a>     apply_parameters(scene, DEFAULTS)</span>
+<span id="L605" class="line"><a href="#L605">605</a>     return scene</span>
+<span id="L606" class="line"><a href="#L606">606</a> </span>
+<span id="L607" class="line"><a href="#L607">607</a> </span>
+<span id="L608" class="line"><a href="#L608">608</a> def apply_parameters(scene_or_params, params=None):</span>
+<span id="L609" class="line"><a href="#L609">609</a>     &quot;&quot;&quot;Apply bounded visible controls to an existing scene.</span>
+<span id="L610" class="line"><a href="#L610">610</a> </span>
+<span id="L611" class="line"><a href="#L611">611</a>     Supports both ``apply_parameters(scene, params)`` and the convenient</span>
+<span id="L612" class="line"><a href="#L612">612</a>     persistent-process form ``apply_parameters(params)``.</span>
+<span id="L613" class="line"><a href="#L613">613</a>     &quot;&quot;&quot;</span>
+<span id="L614" class="line"><a href="#L614">614</a>     if params is None:</span>
+<span id="L615" class="line"><a href="#L615">615</a>         scene = bpy.context.scene</span>
+<span id="L616" class="line"><a href="#L616">616</a>         params = scene_or_params</span>
+<span id="L617" class="line"><a href="#L617">617</a>     else:</span>
+<span id="L618" class="line"><a href="#L618">618</a>         scene = scene_or_params</span>
+<span id="L619" class="line"><a href="#L619">619</a>     merged = dict(DEFAULTS)</span>
+<span id="L620" class="line"><a href="#L620">620</a>     if params:</span>
+<span id="L621" class="line"><a href="#L621">621</a>         merged.update(params)</span>
+<span id="L622" class="line"><a href="#L622">622</a>     for key in BOUNDS:</span>
+<span id="L623" class="line"><a href="#L623">623</a>         merged[key] = _clamp(key, merged[key])</span>
+<span id="L624" class="line"><a href="#L624">624</a>     scene[&quot;parameters&quot;] = str(merged)</span>
+<span id="L625" class="line"><a href="#L625">625</a>     # The node names are stable because this script builds them exactly once.</span>
+<span id="L626" class="line"><a href="#L626">626</a>     sun = bpy.data.objects.get(&quot;KEY_amber_dawn&quot;)</span>
+<span id="L627" class="line"><a href="#L627">627</a>     if sun and sun.data:</span>
+<span id="L628" class="line"><a href="#L628">628</a>         sun.data.energy = merged[&quot;key_energy&quot;]</span>
+<span id="L629" class="line"><a href="#L629">629</a>     volume = bpy.data.objects.get(&quot;ATMOSPHERE_mist_volume&quot;)</span>
+<span id="L630" class="line"><a href="#L630">630</a>     if volume and volume.data and volume.data.materials:</span>
+<span id="L631" class="line"><a href="#L631">631</a>         mat = volume.data.materials[0]</span>
+<span id="L632" class="line"><a href="#L632">632</a>         density_node = mat.node_tree.nodes.get(&quot;Mist Density&quot;)</span>
+<span id="L633" class="line"><a href="#L633">633</a>         if density_node:</span>
+<span id="L634" class="line"><a href="#L634">634</a>             density_node.outputs[0].default_value = merged[&quot;mist_density&quot;]</span>
+<span id="L635" class="line"><a href="#L635">635</a>         else:</span>
+<span id="L636" class="line"><a href="#L636">636</a>             node = next((n for n in mat.node_tree.nodes if n.bl_idname == &quot;ShaderNodeVolumePrincipled&quot;), None)</span>
+<span id="L637" class="line"><a href="#L637">637</a>             if node:</span>
+<span id="L638" class="line"><a href="#L638">638</a>                 _set_input(node, [&quot;Density&quot;], merged[&quot;mist_density&quot;])</span>
+<span id="L639" class="line"><a href="#L639">639</a>     water = bpy.data.materials.get(&quot;MAT_teal_inlet_water&quot;)</span>
+<span id="L640" class="line"><a href="#L640">640</a>     if water:</span>
+<span id="L641" class="line"><a href="#L641">641</a>         water[&quot;water_roughness&quot;] = merged[&quot;water_roughness&quot;]</span>
+<span id="L642" class="line"><a href="#L642">642</a>         node = water.node_tree.nodes.get(&quot;Water Principled&quot;)</span>
+<span id="L643" class="line"><a href="#L643">643</a>         if node:</span>
+<span id="L644" class="line"><a href="#L644">644</a>             _set_input(node, [&quot;Roughness&quot;], merged[&quot;water_roughness&quot;])</span>
+<span id="L645" class="line"><a href="#L645">645</a>     set_camera_shift(scene, merged[&quot;camera_shift&quot;])</span>
+<span id="L646" class="line"><a href="#L646">646</a>     return merged</span>
+<span id="L647" class="line"><a href="#L647">647</a> </span>
+<span id="L648" class="line"><a href="#L648">648</a> </span>
+<span id="L649" class="line"><a href="#L649">649</a> def set_camera_shift(scene_or_shift, shift=None):</span>
+<span id="L650" class="line"><a href="#L650">650</a>     if shift is None:</span>
+<span id="L651" class="line"><a href="#L651">651</a>         scene = bpy.context.scene</span>
+<span id="L652" class="line"><a href="#L652">652</a>         shift = scene_or_shift</span>
+<span id="L653" class="line"><a href="#L653">653</a>     else:</span>
+<span id="L654" class="line"><a href="#L654">654</a>         scene = scene_or_shift</span>
+<span id="L655" class="line"><a href="#L655">655</a>     camera = scene.camera or bpy.data.objects.get(&quot;CAM_low_waterline&quot;)</span>
+<span id="L656" class="line"><a href="#L656">656</a>     if camera and camera.data:</span>
+<span id="L657" class="line"><a href="#L657">657</a>         value = _clamp(&quot;camera_shift&quot;, shift)</span>
+<span id="L658" class="line"><a href="#L658">658</a>         # Held-out views use a real lateral camera displacement and re-aim at</span>
+<span id="L659" class="line"><a href="#L659">659</a>         # the same distant target; lens shift stays neutral.</span>
+<span id="L660" class="line"><a href="#L660">660</a>         camera.location.x = value * 2.4</span>
+<span id="L661" class="line"><a href="#L661">661</a>         camera.data.shift_x = 0.0</span>
+<span id="L662" class="line"><a href="#L662">662</a>         _look_at(camera, (0.0, 28.0, 0.35))</span>
+<span id="L663" class="line"><a href="#L663">663</a>         camera[&quot;camera_shift&quot;] = value</span>
+<span id="L664" class="line"><a href="#L664">664</a>     return _clamp(&quot;camera_shift&quot;, shift)</span>
+<span id="L665" class="line"><a href="#L665">665</a> </span>
+<span id="L666" class="line"><a href="#L666">666</a> </span>
+<span id="L667" class="line"><a href="#L667">667</a> def _configure_cycles(scene, samples=48):</span>
+<span id="L668" class="line"><a href="#L668">668</a>     scene.render.engine = &quot;CYCLES&quot;</span>
+<span id="L669" class="line"><a href="#L669">669</a>     scene.cycles.samples = int(samples)</span>
+<span id="L670" class="line"><a href="#L670">670</a>     scene.cycles.use_denoising = True</span>
+<span id="L671" class="line"><a href="#L671">671</a>     scene.cycles.max_bounces = 8</span>
+<span id="L672" class="line"><a href="#L672">672</a>     scene.cycles.diffuse_bounces = 3</span>
+<span id="L673" class="line"><a href="#L673">673</a>     scene.cycles.glossy_bounces = 4</span>
+<span id="L674" class="line"><a href="#L674">674</a>     scene.cycles.transmission_bounces = 4</span>
+<span id="L675" class="line"><a href="#L675">675</a>     scene.cycles.volume_bounces = 2</span>
+<span id="L676" class="line"><a href="#L676">676</a>     scene.cycles.use_animated_seed = False</span>
+<span id="L677" class="line"><a href="#L677">677</a>     scene.cycles.seed = 13579</span>
+<span id="L678" class="line"><a href="#L678">678</a>     scene.render.image_settings.file_format = &quot;PNG&quot;</span>
+<span id="L679" class="line"><a href="#L679">679</a>     scene.render.image_settings.color_mode = &quot;RGB&quot;</span>
+<span id="L680" class="line"><a href="#L680">680</a>     try:</span>
+<span id="L681" class="line"><a href="#L681">681</a>         prefs = bpy.context.preferences.addons[&quot;cycles&quot;].preferences</span>
+<span id="L682" class="line"><a href="#L682">682</a>         prefs.refresh_devices()</span>
+<span id="L683" class="line"><a href="#L683">683</a>         devices = getattr(prefs, &quot;devices&quot;, [])</span>
+<span id="L684" class="line"><a href="#L684">684</a>         metal = next((d for d in devices if getattr(d, &quot;type&quot;, &quot;&quot;) == &quot;METAL&quot;), None)</span>
+<span id="L685" class="line"><a href="#L685">685</a>         if metal:</span>
+<span id="L686" class="line"><a href="#L686">686</a>             prefs.compute_device_type = &quot;METAL&quot;</span>
+<span id="L687" class="line"><a href="#L687">687</a>             scene.cycles.device = &quot;GPU&quot;</span>
+<span id="L688" class="line"><a href="#L688">688</a>             scene[&quot;render_device&quot;] = &quot;METAL&quot;</span>
+<span id="L689" class="line"><a href="#L689">689</a>             return &quot;METAL&quot;</span>
+<span id="L690" class="line"><a href="#L690">690</a>     except Exception as exc:</span>
+<span id="L691" class="line"><a href="#L691">691</a>         scene[&quot;cycles_device_note&quot;] = str(exc)</span>
+<span id="L692" class="line"><a href="#L692">692</a>     scene.cycles.device = &quot;CPU&quot;</span>
+<span id="L693" class="line"><a href="#L693">693</a>     scene[&quot;render_device&quot;] = &quot;CPU&quot;</span>
+<span id="L694" class="line"><a href="#L694">694</a>     return &quot;CPU&quot;</span>
+<span id="L695" class="line"><a href="#L695">695</a> </span>
+<span id="L696" class="line"><a href="#L696">696</a> </span>
+<span id="L697" class="line"><a href="#L697">697</a> def render(scene, path, width=960, height=540, samples=48, seed=13579, exr=False, exr_path=None):</span>
+<span id="L698" class="line"><a href="#L698">698</a>     &quot;&quot;&quot;Render PNG/EXR, optionally saving both from one Render Result.&quot;&quot;&quot;</span>
+<span id="L699" class="line"><a href="#L699">699</a>     _configure_cycles(scene, samples=samples)</span>
+<span id="L700" class="line"><a href="#L700">700</a>     scene.cycles.seed = int(seed)</span>
+<span id="L701" class="line"><a href="#L701">701</a>     scene.render.resolution_x = int(width)</span>
+<span id="L702" class="line"><a href="#L702">702</a>     scene.render.resolution_y = int(height)</span>
+<span id="L703" class="line"><a href="#L703">703</a>     scene.render.resolution_percentage = 100</span>
+<span id="L704" class="line"><a href="#L704">704</a>     scene.render.filepath = os.fspath(path)</span>
+<span id="L705" class="line"><a href="#L705">705</a>     if exr:</span>
+<span id="L706" class="line"><a href="#L706">706</a>         scene.render.image_settings.file_format = &quot;OPEN_EXR&quot;</span>
+<span id="L707" class="line"><a href="#L707">707</a>         scene.render.image_settings.color_mode = &quot;RGBA&quot;</span>
+<span id="L708" class="line"><a href="#L708">708</a>         scene.render.image_settings.color_depth = &quot;32&quot;</span>
+<span id="L709" class="line"><a href="#L709">709</a>         scene.render.image_settings.exr_codec = &quot;ZIP&quot;</span>
+<span id="L710" class="line"><a href="#L710">710</a>     else:</span>
+<span id="L711" class="line"><a href="#L711">711</a>         scene.render.image_settings.file_format = &quot;PNG&quot;</span>
+<span id="L712" class="line"><a href="#L712">712</a>         scene.render.image_settings.color_mode = &quot;RGB&quot;</span>
+<span id="L713" class="line"><a href="#L713">713</a>     primary_path = os.fspath(path)</span>
+<span id="L714" class="line"><a href="#L714">714</a>     bpy.ops.render.render(write_still=True)</span>
+<span id="L715" class="line"><a href="#L715">715</a>     if exr_path is not None and not exr:</span>
+<span id="L716" class="line"><a href="#L716">716</a>         result = bpy.data.images.get(&quot;Render Result&quot;)</span>
+<span id="L717" class="line"><a href="#L717">717</a>         if result is not None:</span>
+<span id="L718" class="line"><a href="#L718">718</a>             scene.render.filepath = os.fspath(exr_path)</span>
+<span id="L719" class="line"><a href="#L719">719</a>             scene.render.image_settings.file_format = &quot;OPEN_EXR&quot;</span>
+<span id="L720" class="line"><a href="#L720">720</a>             scene.render.image_settings.color_mode = &quot;RGBA&quot;</span>
+<span id="L721" class="line"><a href="#L721">721</a>             scene.render.image_settings.color_depth = &quot;32&quot;</span>
+<span id="L722" class="line"><a href="#L722">722</a>             scene.render.image_settings.exr_codec = &quot;ZIP&quot;</span>
+<span id="L723" class="line"><a href="#L723">723</a>             result.save_render(filepath=os.fspath(exr_path), scene=scene)</span>
+<span id="L724" class="line"><a href="#L724">724</a>             scene.render.filepath = primary_path</span>
+<span id="L725" class="line"><a href="#L725">725</a>             scene.render.image_settings.file_format = &quot;PNG&quot;</span>
+<span id="L726" class="line"><a href="#L726">726</a>             scene.render.image_settings.color_mode = &quot;RGB&quot;</span>
+<span id="L727" class="line"><a href="#L727">727</a>     return os.fspath(path)</span>
+<span id="L728" class="line"><a href="#L728">728</a> </span>
+<span id="L729" class="line"><a href="#L729">729</a> </span>
+<span id="L730" class="line"><a href="#L730">730</a> def _parse_command_line():</span>
+<span id="L731" class="line"><a href="#L731">731</a>     args = sys.argv[sys.argv.index(&quot;--&quot;) + 1 :] if &quot;--&quot; in sys.argv else []</span>
+<span id="L732" class="line"><a href="#L732">732</a>     outdir = Path(args[0]).expanduser().resolve() if args else Path.cwd()</span>
+<span id="L733" class="line"><a href="#L733">733</a>     outdir.mkdir(parents=True, exist_ok=True)</span>
+<span id="L734" class="line"><a href="#L734">734</a>     return outdir</span>
+<span id="L735" class="line"><a href="#L735">735</a> </span>
+<span id="L736" class="line"><a href="#L736">736</a> </span>
+<span id="L737" class="line"><a href="#L737">737</a> def main():</span>
+<span id="L738" class="line"><a href="#L738">738</a>     outdir = _parse_command_line()</span>
+<span id="L739" class="line"><a href="#L739">739</a>     scene = build_scene()</span>
+<span id="L740" class="line"><a href="#L740">740</a>     params = apply_parameters(scene, DEFAULTS)</span>
+<span id="L741" class="line"><a href="#L741">741</a>     preview = outdir / &quot;inlet_preview.png&quot;</span>
+<span id="L742" class="line"><a href="#L742">742</a>     render(scene, preview, width=960, height=540, samples=48, seed=13579)</span>
+<span id="L743" class="line"><a href="#L743">743</a>     blend = outdir / &quot;inlet_scene.blend&quot;</span>
+<span id="L744" class="line"><a href="#L744">744</a>     bpy.ops.wm.save_as_mainfile(filepath=os.fspath(blend))</span>
+<span id="L745" class="line"><a href="#L745">745</a>     print(&quot;CINEMATIC_INLET_READY&quot;)</span>
+<span id="L746" class="line"><a href="#L746">746</a>     print(f&quot;BLENDER_VERSION={bpy.app.version_string}&quot;)</span>
+<span id="L747" class="line"><a href="#L747">747</a>     print(f&quot;RENDER_DEVICE={scene.get(&#x27;render_device&#x27;, &#x27;unknown&#x27;)}&quot;)</span>
+<span id="L748" class="line"><a href="#L748">748</a>     print(f&quot;PARAMETERS={params}&quot;)</span>
+<span id="L749" class="line"><a href="#L749">749</a>     print(f&quot;PREVIEW={preview}&quot;)</span>
+<span id="L750" class="line"><a href="#L750">750</a>     print(f&quot;BLEND={blend}&quot;)</span>
+<span id="L751" class="line"><a href="#L751">751</a> </span>
+<span id="L752" class="line"><a href="#L752">752</a> </span>
+<span id="L753" class="line"><a href="#L753">753</a> if __name__ == &quot;__main__&quot;:</span>
+<span id="L754" class="line"><a href="#L754">754</a>     main()</span></pre></main></body></html>
