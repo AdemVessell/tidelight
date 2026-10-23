@@ -1,0 +1,187 @@
+{
+  "status": "MIXED_OR_FAIL",
+  "question": "Known-scene three-parameter recovery from one rendered view per case",
+  "metric_space": "scene-linear float RGB arrays",
+  "fit_objective": "log1p RGB multiscale objective; acceptance RMSE is raw full-image scene-linear RGB",
+  "cases": [
+    {
+      "case": "case-A",
+      "truth": {
+        "mist_density": 0.023980373208281485,
+        "key_energy": 6.967656360174149,
+        "water_roughness": 0.21453248651235662
+      },
+      "recovered": {
+        "key_energy": 6.969561784965192,
+        "mist_density": 0.023950523964957844,
+        "water_roughness": 0.21468540053270851
+      },
+      "normalized_parameter_errors": {
+        "mist_density": 0.0006218592359091864,
+        "key_energy": 0.00038108495820861067,
+        "water_roughness": 0.0008994942373640638
+      },
+      "parameter_pass": true,
+      "training": {
+        "baseline_rmse": 0.07976586276654032,
+        "fit_rmse": 0.0030422015078712334,
+        "reduction": 0.9618608587388419,
+        "pass": true
+      },
+      "optimizer_status": "budget_exhausted",
+      "evaluations": 70,
+      "held_out": [
+        {
+          "condition": "new-view",
+          "baseline_rmse": 0.08142075478580171,
+          "recovered_rmse": 0.002582079538703,
+          "reduction": 0.9682872070457241,
+          "pass": true,
+          "pixel_copy_rmse": 0.2285031215697431
+        },
+        {
+          "condition": "new-view-light-edit",
+          "baseline_rmse": 0.031315909436454376,
+          "recovered_rmse": 0.003189086792930473,
+          "reduction": 0.8981640051232839,
+          "pass": true,
+          "pixel_copy_rmse": 0.2196869898408812
+        }
+      ],
+      "case_pass": true
+    },
+    {
+      "case": "case-B",
+      "truth": {
+        "mist_density": 0.04469033576484416,
+        "key_energy": 6.184924723299759,
+        "water_roughness": 0.21718991835306128
+      },
+      "recovered": {
+        "key_energy": 7.088501039729985,
+        "mist_density": 0.05178490034285611,
+        "water_roughness": 0.22519733426244637
+      },
+      "normalized_parameter_errors": {
+        "mist_density": 0.1478034287085824,
+        "key_energy": 0.18071526328604506,
+        "water_roughness": 0.04710244652579462
+      },
+      "parameter_pass": false,
+      "training": {
+        "baseline_rmse": 0.05841002337474239,
+        "fit_rmse": 0.017253758159532912,
+        "reduction": 0.7046096343972057,
+        "pass": true
+      },
+      "optimizer_status": "budget_exhausted",
+      "evaluations": 70,
+      "held_out": [
+        {
+          "condition": "new-view",
+          "baseline_rmse": 0.0619003862062878,
+          "recovered_rmse": 0.019232634652298294,
+          "reduction": 0.6892970168521395,
+          "pass": true,
+          "pixel_copy_rmse": 0.0915597969570537
+        },
+        {
+          "condition": "new-view-light-edit",
+          "baseline_rmse": 0.08301183167784212,
+          "recovered_rmse": 0.03115373286779618,
+          "reduction": 0.6247073189674976,
+          "pass": true,
+          "pixel_copy_rmse": 0.0945305635740478
+        }
+      ],
+      "case_pass": false
+    },
+    {
+      "case": "case-C",
+      "truth": {
+        "mist_density": 0.018702151877446966,
+        "key_energy": 7.22106004425399,
+        "water_roughness": 0.22450758448214458
+      },
+      "recovered": {
+        "key_energy": 7.220098742048118,
+        "mist_density": 0.018683387878083452,
+        "water_roughness": 0.22450060762222962
+      },
+      "normalized_parameter_errors": {
+        "mist_density": 0.000390916653406533,
+        "key_energy": 0.00019226044117441886,
+        "water_roughness": 4.104035244096729e-05
+      },
+      "parameter_pass": true,
+      "training": {
+        "baseline_rmse": 0.12631303761600804,
+        "fit_rmse": 0.0019242199908328747,
+        "reduction": 0.9847662598639856,
+        "pass": true
+      },
+      "optimizer_status": "budget_exhausted",
+      "evaluations": 70,
+      "held_out": [
+        {
+          "condition": "new-view",
+          "baseline_rmse": 0.12905012198377014,
+          "recovered_rmse": 0.001558701766958237,
+          "reduction": 0.987921733486201,
+          "pass": true,
+          "pixel_copy_rmse": 0.29221822081405635
+        },
+        {
+          "condition": "new-view-light-edit",
+          "baseline_rmse": 0.07489510951492809,
+          "recovered_rmse": 0.001462483146486233,
+          "reduction": 0.980472915308379,
+          "pass": true,
+          "pixel_copy_rmse": 0.27718776957746294
+        }
+      ],
+      "case_pass": true
+    }
+  ],
+  "negative_control": {
+    "name": "Returning defaults cannot pass the improvement rule",
+    "expected": "FAIL",
+    "candidate": "fixed default parameters",
+    "cases": [
+      {
+        "case": "case-A",
+        "baseline_rmse": 0.07976586276654032,
+        "default_rmse": 0.07976586276654032,
+        "reduction": 0.0,
+        "pass": false
+      },
+      {
+        "case": "case-B",
+        "baseline_rmse": 0.05841002337474239,
+        "default_rmse": 0.05841002337474239,
+        "reduction": 0.0,
+        "pass": false
+      },
+      {
+        "case": "case-C",
+        "baseline_rmse": 0.12631303761600804,
+        "default_rmse": 0.12631303761600804,
+        "reduction": 0.0,
+        "pass": false
+      }
+    ],
+    "detected": true
+  },
+  "held_out_settings": {
+    "width": 256,
+    "height": 144,
+    "samples": 64,
+    "seed": 24680,
+    "camera_shift": 0.45
+  },
+  "limits": [
+    "Synthetic images from known renderer; no arbitrary photograph or equation discovery.",
+    "Three settings only; labels withheld by process interface on shared filesystem.",
+    "Aesthetic acceptance remains with the user."
+  ]
+}

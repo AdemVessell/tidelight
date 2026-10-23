@@ -1,0 +1,8 @@
+{
+  "target_hashes": {
+    "case-A.npy": "c3679c1097f54e86c6caab8ecb5559fb0db5051007d31c8348e83673fe8afdbc",
+    "case-B.npy": "6a1591eab76060193d3bbdd1dbd4baf4318c36d81ae975975c9f3f424e0e4a8b",
+    "case-C.npy": "17c0c88d1d01a579db64f1b915371da8a5c526461a01d13a744046e6f5f14ca8"
+  },
+  "truth_commitment": "e00c0c5bb50aacfa0fa381527a90c5e5c4654f9165de2bcd8fdd0a2d35f3b3a7"
+}

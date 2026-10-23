@@ -1,0 +1,20 @@
+{
+  "source_hashes": {
+    "scene.py": "03484bd17d1f9c3e0a280c0d1302462181d1b1ec1e348d643232afb1faa6562c",
+    "recovery.py": "7e171be2d1349381eebfce578516b5fdaf5e08af91535bb51bab5eb539f297b8",
+    "render_service.py": "bcc652303306a313a3cd35d824ad82d2930269c6c804f428d5a997546e165ee9",
+    "evaluate.py": "eb0b43382c7945e5b54714a90ae2b529909936ab4f8693dddc574e43600b961a",
+    "PROTOCOL.md": "9dcc7627f2db819f915fe8176555cf3f537e693dd5c40cf1b7d543a54de83aef"
+  },
+  "training_settings": {
+    "width": 256,
+    "height": 144,
+    "samples": 16,
+    "seed": 13579
+  },
+  "fit_budget": 70,
+  "parameter_range_error_limit": 0.08,
+  "rmse_reduction_required": 0.5,
+  "withholding": "Labels withheld from fitting inputs on shared filesystem; not a security sandbox.",
+  "created_unix": 1792748091.912586
+}

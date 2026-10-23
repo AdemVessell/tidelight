@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "method": "Fresh factory-startup Blender process rebuilds frozen scene.py",
+  "rmse": 3.509575822809654e-07,
+  "max_abs": 1.239776611328125e-05,
+  "byte_identical": false,
+  "tolerance": 0.0001,
+  "settings": {
+    "width": 256,
+    "height": 144,
+    "samples": 16,
+    "seed": 13579
+  },
+  "scene_sha256": "03484bd17d1f9c3e0a280c0d1302462181d1b1ec1e348d643232afb1faa6562c",
+  "render_metadata": {
+    "array_path": "replay-queue/renders/fresh-process-default-0000-1b197cb7f8e1473eaf7fd7e2e7b2dceb.npy",
+    "blender_version": "5.1.2",
+    "dtype": "float32",
+    "exr_path": "replay-queue/renders/fresh-process-default-0000-1b197cb7f8e1473eaf7fd7e2e7b2dceb.exr",
+    "parameters": {
+      "key_energy": 5.5,
+      "mist_density": 0.028,
+      "water_roughness": 0.14
+    },
+    "pixel_source": "loaded_exr32",
+    "png_path": "replay-queue/renders/fresh-process-default-0000-1b197cb7f8e1473eaf7fd7e2e7b2dceb.png",
+    "request_id": "1b197cb7f8e1473eaf7fd7e2e7b2dceb",
+    "runtime_seconds": 2.0880503749940544,
+    "shape": [
+      144,
+      256,
+      3
+    ],
+    "status": "ok",
+    "view": {
+      "camera_shift": 0.0
+    }
+  }
+}

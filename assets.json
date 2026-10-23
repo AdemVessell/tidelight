@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "origin": "Published TIDELIGHT assets, 23 October 2026",
+  "assets": [
+    {
+      "url": "https://www.xn--arkh-eva.org/tidelight/assets/tidelight-math-reveal.mp4",
+      "bytes": 8640462,
+      "sha256": "3b5f6c00fa8c3a3d45c66830e1c7d58de19cd6e38146323cea32b5acdd046b9a",
+      "destinations": [
+        "website/dist/tidelight/assets/tidelight-math-reveal.mp4"
+      ]
+    },
+    {
+      "url": "https://www.xn--arkh-eva.org/tidelight/downloads/inlet_scene.blend",
+      "bytes": 4436724,
+      "sha256": "4ccb86695ecb3f4186a236e1b1c5d767b9caa315d2799eecdafda18ef506b0ac",
+      "destinations": [
+        "website/dist/tidelight/downloads/inlet_scene.blend"
+      ]
+    },
+    {
+      "url": "https://www.xn--arkh-eva.org/tidelight/downloads/tidelight-reproduction.zip",
+      "bytes": 1728076,
+      "sha256": "5ee722ee4800f647e1ca6eff8fc53d50718c77c3c9819f5825ae0963103027c2",
+      "destinations": [
+        "website/dist/tidelight/downloads/tidelight-reproduction.zip"
+      ]
+    },
+    {
+      "url": "https://www.xn--arkh-eva.org/tidelight/motion/shot.blend",
+      "bytes": 5014947,
+      "sha256": "4522358090ae59241a8d8c518ea322e91ae1fe51584227a33e671f10ade748de",
+      "destinations": [
+        "website/dist/tidelight/motion/shot.blend",
+        "cinematic-shot/shot.blend"
+      ]
+    },
+    {
+      "url": "https://www.xn--arkh-eva.org/tidelight/motion/tidelight-cinematic-shot.mp4",
+      "bytes": 8395851,
+      "sha256": "b5906470508ca0d714746b65f8fc077f102f1b256141938231509c890ff211a1",
+      "destinations": [
+        "website/dist/tidelight/motion/tidelight-cinematic-shot.mp4",
+        "cinematic-shot/tidelight-cinematic-shot.mp4"
+      ]
+    },
+    {
+      "url": "https://www.xn--arkh-eva.org/tidelight/motion/tidelight-motion-and-math.mp4",
+      "bytes": 23605437,
+      "sha256": "8ae0f5c1235d048a132994841f23442b63fc20faa715b8f55842ba83472f8b1f",
+      "destinations": [
+        "website/dist/tidelight/motion/tidelight-motion-and-math.mp4",
+        "cinematic-shot/tidelight-motion-and-math.mp4"
+      ]
+    },
+    {
+      "url": "https://www.xn--arkh-eva.org/tidelight/motion/tidelight-motion-source.zip",
+      "bytes": 5923152,
+      "sha256": "6644ef9e78cc8b9d0e43a094d2025a58d21312c93bca5545fbb97fc984d3f387",
+      "destinations": [
+        "website/dist/tidelight/motion/tidelight-motion-source.zip"
+      ]
+    }
+  ]
+}
